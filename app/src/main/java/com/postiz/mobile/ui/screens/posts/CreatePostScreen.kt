@@ -2,6 +2,7 @@ package com.postiz.mobile.ui.screens.posts
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +30,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
@@ -74,8 +76,8 @@ fun CreatePostScreen(
     }
 
     val imagePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? -> uri?.let(viewModel::onImagePicked) }
+        contract = ActivityResultContracts.PickMultipleVisualMedia()
+    ) { uris: List<Uri> -> viewModel.onImagesPicked(uris) }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
@@ -170,85 +172,113 @@ fun CreatePostScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            Text("IMAGE", style = MaterialTheme.typography.labelLarge, color = muted)
+            Text("MEDIA", style = MaterialTheme.typography.labelLarge, color = muted)
             Spacer(Modifier.height(10.dp))
 
-            if (state.uploadedImage != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    AsyncImage(
-                        model = state.uploadedImage.path,
-                        contentDescription = null,
-                        modifier = Modifier.size(72.dp).clip(RoundedCornerShape(4.dp))
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    IconButton(onClick = viewModel::clearImage) {
-                        Icon(Icons.Default.Close, contentDescription = "Remove image", tint = muted)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(state.uploadedImages, key = { it.id }) { image ->
+                    Box(modifier = Modifier.size(72.dp)) {
+                        if (isVideoPath(image.path)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(hairline.copy(alpha = 0.3f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = "Video", tint = muted)
+                            }
+                        } else {
+                            AsyncImage(
+                                model = image.path,
+                                contentDescription = null,
+                                modifier = Modifier.size(72.dp).clip(RoundedCornerShape(4.dp))
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(2.dp)
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.6f))
+                                .clickable { viewModel.removeImage(image.id) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Remove image",
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
+                }
+                item {
+                    Row(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .border(1.dp, hairline, RoundedCornerShape(4.dp))
+                            .clickable(enabled = !state.isUploadingImage) {
+                                imagePicker.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
+                                )
+                            },
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (state.isUploadingImage) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = accent)
+                        } else {
+                            Text("+ Attach", style = MaterialTheme.typography.bodyMedium, color = muted)
+                        }
+                    }
+                }
+            }
+
+            var showUrlField by remember { mutableStateOf(false) }
+            var urlText by remember { mutableStateOf("") }
+
+            if (showUrlField) {
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BasicTextField(
+                        value = urlText,
+                        onValueChange = { urlText = it },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = ink),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(bottom = 6.dp),
+                        decorationBox = { inner ->
+                            if (urlText.isEmpty()) {
+                                Text(
+                                    "https://…",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = muted.copy(alpha = 0.6f)
+                                )
+                            }
+                            inner()
+                        }
+                    )
+                    Text(
+                        "Add",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = accent,
+                        modifier = Modifier.clickable {
+                            viewModel.attachByUrl(urlText)
+                            urlText = ""
+                            showUrlField = false
+                        }
+                    )
                 }
             } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, hairline, RoundedCornerShape(4.dp))
-                        .clickable(enabled = !state.isUploadingImage) { imagePicker.launch("image/*") }
-                        .padding(18.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    if (state.isUploadingImage) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = accent)
-                    } else {
-                        Text(
-                            "+ Attach a figure",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = muted
-                        )
-                    }
-                }
-
-                var showUrlField by remember { mutableStateOf(false) }
-                var urlText by remember { mutableStateOf("") }
-
-                if (showUrlField) {
-                    Spacer(Modifier.height(10.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        BasicTextField(
-                            value = urlText,
-                            onValueChange = { urlText = it },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = ink),
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(bottom = 6.dp),
-                            decorationBox = { inner ->
-                                if (urlText.isEmpty()) {
-                                    Text(
-                                        "https://…",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = muted.copy(alpha = 0.6f)
-                                    )
-                                }
-                                inner()
-                            }
-                        )
-                        Text(
-                            "Add",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = accent,
-                            modifier = Modifier.clickable {
-                                viewModel.attachByUrl(urlText)
-                                urlText = ""
-                                showUrlField = false
-                            }
-                        )
-                    }
-                } else {
-                    Text(
-                        "or paste an image URL",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = muted,
-                        modifier = Modifier.padding(top = 8.dp).clickable { showUrlField = true }
-                    )
-                }
+                Text(
+                    "or paste an image/video URL",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = muted,
+                    modifier = Modifier.padding(top = 8.dp).clickable { showUrlField = true }
+                )
             }
 
             Spacer(Modifier.height(22.dp))
@@ -436,6 +466,13 @@ private fun ChannelChip(
             overflow = TextOverflow.Ellipsis
         )
     }
+}
+
+private val videoExtensions = setOf("mp4", "mov", "webm", "mkv", "avi", "m4v", "3gp")
+
+private fun isVideoPath(path: String): Boolean {
+    val ext = path.substringAfterLast('.', "").substringBefore('?').lowercase()
+    return ext in videoExtensions
 }
 
 @Composable

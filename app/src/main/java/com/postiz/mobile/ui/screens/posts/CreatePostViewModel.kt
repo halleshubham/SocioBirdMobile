@@ -13,6 +13,7 @@ import com.postiz.mobile.data.remote.dto.PostImageDto
 import com.postiz.mobile.data.remote.dto.PostIntegrationRefDto
 import com.postiz.mobile.data.remote.dto.PostRequestItemDto
 import com.postiz.mobile.data.remote.dto.PostValueDto
+import com.postiz.mobile.data.remote.dto.UploadResponseDto
 import com.postiz.mobile.data.repository.PostizRepository
 import com.postiz.mobile.util.Resource
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -53,7 +54,7 @@ data class CreatePostUiState(
     val scheduleDateMillisUtc: Long? = null,
     val scheduleHour: Int = 10,
     val scheduleMinute: Int = 0,
-    val uploadedImage: PostImageDto? = null,
+    val uploadedImages: List<PostImageDto> = emptyList(),
     val isUploadingImage: Boolean = false,
     val isLoadingIntegrations: Boolean = true,
     val isSubmitting: Boolean = false,
@@ -147,23 +148,31 @@ class CreatePostViewModel @Inject constructor(
         uiState = uiState.copy(scheduleHour = hour, scheduleMinute = minute)
     }
 
-    fun onImagePicked(uri: Uri) {
+    /** Uploads every picked file concurrently and appends whichever succeed to the existing selection. */
+    fun onImagesPicked(uris: List<Uri>) {
+        if (uris.isEmpty()) return
         viewModelScope.launch {
             uiState = uiState.copy(isUploadingImage = true, error = null)
-            val part = try {
-                uriToMultipart(uri)
-            } catch (e: Exception) {
-                uiState = uiState.copy(isUploadingImage = false, error = "Couldn't read that file")
-                return@launch
-            }
-            when (val result = repository.uploadFile(part)) {
-                is Resource.Success -> uiState = uiState.copy(
-                    isUploadingImage = false,
-                    uploadedImage = PostImageDto(id = result.data.id, path = result.data.path)
-                )
-                is Resource.Error -> uiState = uiState.copy(isUploadingImage = false, error = result.message)
-                Resource.Loading -> Unit
-            }
+            val results = uris.map { uri ->
+                async {
+                    val part = try {
+                        uriToMultipart(uri)
+                    } catch (e: Exception) {
+                        return@async Resource.Error("Couldn't read that file")
+                    }
+                    repository.uploadFile(part)
+                }
+            }.awaitAll()
+
+            val uploaded = results.filterIsInstance<Resource.Success<UploadResponseDto>>()
+                .map { PostImageDto(id = it.data.id, path = it.data.path) }
+            val firstError = results.filterIsInstance<Resource.Error>().firstOrNull()?.message
+
+            uiState = uiState.copy(
+                isUploadingImage = false,
+                uploadedImages = uiState.uploadedImages + uploaded,
+                error = firstError
+            )
         }
     }
 
@@ -174,7 +183,7 @@ class CreatePostViewModel @Inject constructor(
             when (val result = repository.uploadFromUrl(url.trim())) {
                 is Resource.Success -> uiState = uiState.copy(
                     isUploadingImage = false,
-                    uploadedImage = PostImageDto(id = result.data.id, path = result.data.path)
+                    uploadedImages = uiState.uploadedImages + PostImageDto(id = result.data.id, path = result.data.path)
                 )
                 is Resource.Error -> uiState = uiState.copy(isUploadingImage = false, error = result.message)
                 Resource.Loading -> Unit
@@ -182,8 +191,8 @@ class CreatePostViewModel @Inject constructor(
         }
     }
 
-    fun clearImage() {
-        uiState = uiState.copy(uploadedImage = null)
+    fun removeImage(id: String) {
+        uiState = uiState.copy(uploadedImages = uiState.uploadedImages.filterNot { it.id == id })
     }
 
     /** Asks the server for the next free slot on the first selected channel and fills the picker with it. */
@@ -246,15 +255,13 @@ class CreatePostViewModel @Inject constructor(
             scheduledInstant().toString()
         }
 
-        val images = uiState.uploadedImage?.let { listOf(it) } ?: emptyList()
-
         val request = CreatePostRequestDto(
             type = if (uiState.scheduleMode == ScheduleMode.NOW) "now" else "schedule",
             date = isoDate,
             posts = selected.map { integration ->
                 PostRequestItemDto(
                     integration = PostIntegrationRefDto(id = integration.id),
-                    value = listOf(PostValueDto(content = uiState.content, image = images)),
+                    value = listOf(PostValueDto(content = uiState.content, image = uiState.uploadedImages)),
                     settings = buildJsonObject {
                         put("__type", JsonPrimitive(integration.identifier))
                         // These two providers reject the request (400) without
