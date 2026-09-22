@@ -70,8 +70,13 @@ class PostizApiProvider @Inject constructor(
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            // Video uploads can legitimately take minutes on a slow mobile
+            // connection; 30s (the old value) was tight enough to abort a
+            // real reel upload mid-transfer. These only bound how long a
+            // single read/write op may stall, not the request as a whole,
+            // so ordinary JSON calls aren't affected.
+            .readTimeout(5, TimeUnit.MINUTES)
+            .writeTimeout(5, TimeUnit.MINUTES)
             .build()
 
         val retrofit = Retrofit.Builder()

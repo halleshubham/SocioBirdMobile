@@ -23,9 +23,12 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody
+import okio.BufferedSink
+import okio.source
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -153,10 +156,22 @@ class CreatePostViewModel @Inject constructor(
         if (uris.isEmpty()) return
         viewModelScope.launch {
             uiState = uiState.copy(isUploadingImage = true, error = null)
+            val resolver = appContext.contentResolver
             val results = uris.map { uri ->
                 async {
+                    val mimeType = resolver.getType(uri) ?: "application/octet-stream"
+                    // The server sniffs the real content from magic bytes and only
+                    // allows video/mp4 for video (any other container/codec 400s
+                    // after the whole file has already been uploaded) -- catching
+                    // it here skips a slow, doomed upload instead of surprising
+                    // the user with a generic "Request failed (400)" after a wait.
+                    if (mimeType.startsWith("video/") && mimeType != "video/mp4") {
+                        return@async Resource.Error(
+                            "This server only accepts MP4 video; this file is $mimeType. Try converting it to MP4 first."
+                        )
+                    }
                     val part = try {
-                        uriToMultipart(uri)
+                        uriToMultipart(uri, mimeType)
                     } catch (e: Exception) {
                         return@async Resource.Error("Couldn't read that file")
                     }
@@ -286,13 +301,27 @@ class CreatePostViewModel @Inject constructor(
         }
     }
 
-    private fun uriToMultipart(uri: Uri): MultipartBody.Part {
+    /**
+     * Streams the picked file straight from the ContentResolver into the
+     * multipart request instead of reading it into a ByteArray first --
+     * the previous approach buffered the whole file (fine for a photo,
+     * but slow and OOM-risky for a large video: everything sits in memory
+     * before the upload even starts writing to the network).
+     */
+    private fun uriToMultipart(uri: Uri, mimeType: String): MultipartBody.Part {
         val resolver = appContext.contentResolver
-        val mimeType = resolver.getType(uri) ?: "application/octet-stream"
-        val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: throw IllegalStateException("Empty file")
-        val body = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
         val fileName = "upload_${System.currentTimeMillis()}"
+        val body = object : RequestBody() {
+            override fun contentType(): MediaType? = mimeType.toMediaTypeOrNull()
+
+            override fun contentLength(): Long =
+                runCatching { resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } }.getOrNull() ?: -1L
+
+            override fun writeTo(sink: BufferedSink) {
+                val input = resolver.openInputStream(uri) ?: throw IllegalStateException("Empty file")
+                input.use { stream -> sink.writeAll(stream.source()) }
+            }
+        }
         return MultipartBody.Part.createFormData("file", fileName, body)
     }
 }
