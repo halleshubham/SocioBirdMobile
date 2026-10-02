@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,6 +30,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
@@ -36,6 +40,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -155,6 +160,31 @@ fun CreatePostScreen(
                     color = muted
                 )
             } else {
+                if (state.brands.isNotEmpty()) {
+                    Text("Quick select brand", style = MaterialTheme.typography.bodyMedium, color = muted)
+                    Spacer(Modifier.height(8.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(state.brands, key = { it.id }) { brand ->
+                            val brandSelected = state.isBrandSelected(brand.id)
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(if (brandSelected) accent else Color.Transparent)
+                                    .border(1.dp, if (brandSelected) accent else hairline, RoundedCornerShape(999.dp))
+                                    .clickable { viewModel.toggleBrand(brand.id) }
+                                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                            ) {
+                                Text(
+                                    brand.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (brandSelected) MaterialTheme.colorScheme.onPrimary else ink,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                }
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(state.integrations, key = { it.id }) { integration: IntegrationDto ->
                         val selected = integration.id in state.selectedIntegrationIds
@@ -236,6 +266,23 @@ fun CreatePostScreen(
                 }
             }
 
+            if (state.isUploadingImage) {
+                Spacer(Modifier.height(10.dp))
+                val progress = state.uploadProgress
+                Text(
+                    (state.uploadLabel ?: "Uploading") +
+                        (progress?.let { " · ${(it * 100).toInt()}%" } ?: ""),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = muted
+                )
+                Spacer(Modifier.height(6.dp))
+                if (progress != null) {
+                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth(), color = accent)
+                } else {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = accent)
+                }
+            }
+
             var showUrlField by remember { mutableStateOf(false) }
             var urlText by remember { mutableStateOf("") }
 
@@ -305,31 +352,43 @@ fun CreatePostScreen(
 
             if (state.scheduleMode == ScheduleMode.LATER) {
                 Spacer(Modifier.height(14.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        state.scheduleDisplay,
-                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
-                        color = ink,
-                        modifier = Modifier.clickable { showDatePicker = true }.padding(bottom = 2.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    ScheduleButton(
+                        icon = Icons.Default.CalendarMonth,
+                        label = state.scheduleLocalDate.format(
+                            java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d", java.util.Locale.getDefault())
+                        ),
+                        accent = accent,
+                        ink = ink,
+                        modifier = Modifier.weight(1f),
+                        onClick = { showDatePicker = true }
                     )
-                    if (state.isSuggestingSlot) {
-                        Spacer(Modifier.width(10.dp))
-                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = accent)
-                    }
+                    ScheduleButton(
+                        icon = Icons.Default.AccessTime,
+                        label = java.time.LocalTime.of(state.scheduleHour, state.scheduleMinute).format(
+                            java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.getDefault())
+                        ),
+                        accent = accent,
+                        ink = ink,
+                        modifier = Modifier.weight(1f),
+                        onClick = { showTimePicker = true }
+                    )
                 }
+                Spacer(Modifier.height(10.dp))
+                ScheduleButton(
+                    icon = Icons.Default.AutoAwesome,
+                    label = if (state.isSuggestingSlot) "Finding a slot…" else "Suggest a time",
+                    accent = accent,
+                    ink = accent,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !state.isSuggestingSlot,
+                    onClick = viewModel::suggestTime
+                )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Edit date · Edit time · shown in ${viewModel.zoneLabel}",
+                    "Times shown in ${viewModel.zoneLabel}",
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp),
-                    color = muted,
-                    modifier = Modifier.clickable { showTimePicker = true }
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Suggest a time",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp),
-                    color = accent,
-                    modifier = Modifier.clickable(enabled = !state.isSuggestingSlot, onClick = viewModel::suggestTime)
+                    color = muted
                 )
             }
 
@@ -497,5 +556,33 @@ private fun ScheduleChoiceRow(
         )
         Spacer(Modifier.width(10.dp))
         Text(label, style = MaterialTheme.typography.bodyLarge, color = if (selected) ink else muted)
+    }
+}
+
+/** A large, clearly-tappable (48dp+) outlined button used for the date / time / suggest actions. */
+@Composable
+private fun ScheduleButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    accent: Color,
+    ink: Color,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = modifier
+            .heightIn(min = 52.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(accent.copy(alpha = 0.08f))
+            .border(1.dp, accent.copy(alpha = if (enabled) 0.6f else 0.25f), RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp), color = ink, maxLines = 1)
     }
 }

@@ -2,8 +2,11 @@ name: Build debug APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
   workflow_dispatch: {}
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -28,3 +31,12 @@ jobs:
         with:
           name: postiz-mobile-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Publish APK to a pre-release (easy phone download)
+        if: github.ref == 'refs/heads/develop'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: develop-latest
+          name: Develop debug build
+          prerelease: true
+          files: app/build/outputs/apk/debug/*.apk
