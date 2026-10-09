@@ -123,8 +123,8 @@ class PostizRepository @Inject constructor(
         val result = safeCall { multipartUpload(fileName, mimeType, openStream) }
         return when (result) {
             is Resource.Success -> result.data?.let { Resource.Success(it) } ?: fallback()
-            is Resource.Error -> result
-            Resource.Loading -> result
+            is Resource.Error -> Resource.Error(result.message)
+            Resource.Loading -> Resource.Loading
         }
     }
 
