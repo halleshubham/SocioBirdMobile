@@ -199,7 +199,14 @@ class PostizRepository @Inject constructor(
                     return response.header("ETag") ?: throw IOException("Storage returned no ETag for part $partNumber")
                 }
             } catch (e: IOException) {
-                if (++attempt >= PART_ATTEMPTS) throw e
+                // not rethrown as an IOException, which would be reported as "can't reach the
+                // server" even though it is storage that failed
+                if (++attempt >= PART_ATTEMPTS) {
+                    throw IllegalStateException(
+                        "Upload to storage failed on part $partNumber (${e.javaClass.simpleName}: ${e.message}). Check your connection and try again.",
+                        e
+                    )
+                }
             }
         }
     }
