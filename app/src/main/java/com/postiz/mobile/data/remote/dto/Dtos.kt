@@ -177,6 +177,69 @@ data class UploadFromUrlRequestDto(
     val url: String
 )
 
+/*
+ * POST /upload/<step> -- direct-to-storage multipart upload for large files.
+ * The file's parts are PUT straight to the presigned URLs, so they never
+ * pass through the server or the proxy in front of it (which caps request
+ * bodies). Mirrors the web app's flow in the backend's r2.uploader.ts.
+ */
+@Serializable
+data class MultipartFileDto(
+    val name: String,
+    val type: String
+)
+
+@Serializable
+data class CreateMultipartUploadRequestDto(
+    val file: MultipartFileDto,
+    val contentType: String,
+    val fileHash: String = ""
+)
+
+@Serializable
+data class CreateMultipartUploadResponseDto(
+    val uploadId: String,
+    val key: String
+)
+
+@Serializable
+data class SignPartRequestDto(
+    val key: String,
+    val uploadId: String,
+    val partNumber: Int
+)
+
+@Serializable
+data class SignPartResponseDto(
+    val url: String
+)
+
+@Serializable
+data class UploadedPartDto(
+    @SerialName("PartNumber") val partNumber: Int,
+    @SerialName("ETag") val eTag: String
+)
+
+@Serializable
+data class CompleteMultipartUploadRequestDto(
+    val key: String,
+    val uploadId: String,
+    val parts: List<UploadedPartDto>,
+    val file: MultipartFileDto
+)
+
+/** Only the saved media record is read; the rest of the body is the storage response. */
+@Serializable
+data class CompleteMultipartUploadResponseDto(
+    val saved: UploadResponseDto
+)
+
+@Serializable
+data class AbortMultipartUploadRequestDto(
+    val key: String,
+    val uploadId: String
+)
+
 /** GET /social/:integration -- the OAuth URL to open in a browser to connect a new channel. */
 @Serializable
 data class SocialConnectResponseDto(

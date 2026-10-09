@@ -35,6 +35,19 @@ class PostizApiProvider @Inject constructor(
         encodeDefaults = true
     }
 
+    /**
+     * Client for the presigned storage URLs the multipart upload hands out.
+     * It deliberately has no Authorization interceptor: the URL is already
+     * signed, and an extra header would be rejected by the storage.
+     */
+    val storageClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.MINUTES)
+            .writeTimeout(5, TimeUnit.MINUTES)
+            .build()
+    }
+
     @Volatile private var cachedKey: String? = null
     @Volatile private var cachedService: PostizApiService? = null
 

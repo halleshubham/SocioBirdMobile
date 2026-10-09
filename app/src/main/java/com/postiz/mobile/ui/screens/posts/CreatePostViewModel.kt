@@ -2,6 +2,7 @@ package com.postiz.mobile.ui.screens.posts
 
 import android.content.Context
 import android.net.Uri
+import android.webkit.MimeTypeMap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -175,7 +176,18 @@ class CreatePostViewModel @Inject constructor(
                     } catch (e: Exception) {
                         return@async Resource.Error("Couldn't read that file")
                     }
-                    repository.uploadFile(part)
+                    val size = runCatching { resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } }.getOrNull() ?: -1L
+                    if (size > MULTIPART_THRESHOLD_BYTES) {
+                        // too big to send through the server and the proxy in front of it
+                        repository.uploadLargeFile(
+                            fileName = multipartFileName(mimeType),
+                            mimeType = mimeType,
+                            openStream = { resolver.openInputStream(uri) },
+                            fallback = { repository.uploadFile(part) }
+                        )
+                    } else {
+                        repository.uploadFile(part)
+                    }
                 }
             }.awaitAll()
 
@@ -323,5 +335,16 @@ class CreatePostViewModel @Inject constructor(
             }
         }
         return MultipartBody.Part.createFormData("file", fileName, body)
+    }
+
+    /** The server picks the stored type from the extension, so a multipart upload needs one. */
+    private fun multipartFileName(mimeType: String): String {
+        val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType) ?: "bin"
+        return "upload_${System.currentTimeMillis()}.$extension"
+    }
+
+    private companion object {
+        // above this a file goes straight to storage in parts instead of through /upload
+        const val MULTIPART_THRESHOLD_BYTES = 50L * 1024 * 1024
     }
 }
