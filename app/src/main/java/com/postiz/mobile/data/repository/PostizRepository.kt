@@ -25,9 +25,11 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.decodeFromJsonElement
+import okhttp3.MediaType
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
+import okio.BufferedSink
 import retrofit2.HttpException
 import java.io.IOException
 import java.io.InputStream
@@ -158,10 +160,12 @@ class PostizRepository @Inject constructor(
                 while (true) {
                     val length = readFully(stream, buffer)
                     if (length == 0) break
-                    val eTag = putPart(created.key, created.uploadId, partNumber, buffer, length)
+                    val before = sent
+                    val eTag = putPart(created.key, created.uploadId, partNumber, buffer, length) { written ->
+                        if (totalBytes > 0) onProgress(((before + written).toFloat() / totalBytes).coerceAtMost(1f))
+                    }
                     parts.add(UploadedPartDto(partNumber, eTag))
                     sent += length
-                    if (totalBytes > 0) onProgress((sent.toFloat() / totalBytes).coerceAtMost(1f))
                     partNumber++
                 }
             }
@@ -177,12 +181,19 @@ class PostizRepository @Inject constructor(
     }
 
     /** Signs and PUTs one part, retrying transient failures with a fresh signature. Returns its ETag. */
-    private suspend fun putPart(key: String, uploadId: String, partNumber: Int, data: ByteArray, length: Int): String {
+    private suspend fun putPart(
+        key: String,
+        uploadId: String,
+        partNumber: Int,
+        data: ByteArray,
+        length: Int,
+        onBytesWritten: (Long) -> Unit
+    ): String {
         var attempt = 0
         while (true) {
             try {
                 val url = apiProvider.getService().signPart(SignPartRequestDto(key, uploadId, partNumber)).url
-                val request = Request.Builder().url(url).put(data.toRequestBody(null, 0, length)).build()
+                val request = Request.Builder().url(url).put(ProgressBody(data, length, onBytesWritten)).build()
                 apiProvider.storageClient.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) throw IOException("Storage rejected part $partNumber (${response.code})")
                     return response.header("ETag") ?: throw IOException("Storage returned no ETag for part $partNumber")
@@ -254,6 +265,28 @@ class PostizRepository @Inject constructor(
         429 -> "Rate limit exceeded – try again in a bit"
         in 500..599 -> "Server error ($code) – try again later"
         else -> "Request failed ($code)"
+    }
+
+    /** Sends one part and reports how many of its bytes have gone out, so a slow uplink still shows movement. */
+    private class ProgressBody(
+        private val data: ByteArray,
+        private val length: Int,
+        private val onBytesWritten: (Long) -> Unit
+    ) : RequestBody() {
+        override fun contentType(): MediaType? = null
+
+        override fun contentLength(): Long = length.toLong()
+
+        override fun writeTo(sink: BufferedSink) {
+            var offset = 0
+            while (offset < length) {
+                val chunk = minOf(64 * 1024, length - offset)
+                sink.write(data, offset, chunk)
+                sink.flush()
+                offset += chunk
+                onBytesWritten(offset.toLong())
+            }
+        }
     }
 
     private companion object {

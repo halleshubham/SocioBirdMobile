@@ -2,6 +2,7 @@ package com.postiz.mobile.ui.screens.posts
 
 import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -213,9 +214,12 @@ class CreatePostViewModel @Inject constructor(
                     if (firstError == null) firstError = "Couldn't read that file"
                     return@forEachIndexed
                 }
-                val size = runCatching { resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } }.getOrNull() ?: -1L
-                val response = if (size > MULTIPART_THRESHOLD_BYTES) {
-                    // too big to send through the server and the proxy in front of it
+                val size = fileSize(uri)
+                // some pickers (cloud-backed videos) report no size; a video of unknown size
+                // is treated as large, since the regular upload can't show progress for it
+                // and the proxy in front of the server rejects big bodies
+                val response = if (size > MULTIPART_THRESHOLD_BYTES || (isVideo && size <= 0)) {
+                    if (size <= 0) uiState = uiState.copy(uploadProgress = null)
                     repository.uploadLargeFile(
                         fileName = multipartFileName(mimeType),
                         mimeType = mimeType,
@@ -404,6 +408,18 @@ class CreatePostViewModel @Inject constructor(
             }
         }
         return MultipartBody.Part.createFormData("file", fileName, body)
+    }
+
+    /** Size of the picked file, or -1 when neither the file descriptor nor the provider can tell. */
+    private fun fileSize(uri: Uri): Long {
+        val resolver = appContext.contentResolver
+        val fromDescriptor = runCatching { resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } }.getOrNull() ?: -1L
+        if (fromDescriptor > 0) return fromDescriptor
+        return runCatching {
+            resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else -1L
+            }
+        }.getOrNull() ?: -1L
     }
 
     /** The server picks the stored type from the extension, so a multipart upload needs one. */
