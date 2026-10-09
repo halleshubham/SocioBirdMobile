@@ -150,7 +150,7 @@ fun CreatePostScreen(
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = accent)
             } else if (state.integrations.isEmpty()) {
                 Text(
-                    "No connected channels found. Connect one in the Postiz web app first.",
+                    "No connected channels found. Connect one in the Sociobird web app first.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = muted
                 )

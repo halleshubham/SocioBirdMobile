@@ -1,14 +1,21 @@
 package com.postiz.mobile.data.remote
 
+import com.postiz.mobile.data.remote.dto.AbortMultipartUploadRequestDto
 import com.postiz.mobile.data.remote.dto.AnalyticsDataDto
 import com.postiz.mobile.data.remote.dto.ChangePostStatusRequestDto
 import com.postiz.mobile.data.remote.dto.ConnectionStatusDto
+import com.postiz.mobile.data.remote.dto.CompleteMultipartUploadRequestDto
+import com.postiz.mobile.data.remote.dto.CompleteMultipartUploadResponseDto
+import com.postiz.mobile.data.remote.dto.CreateMultipartUploadRequestDto
+import com.postiz.mobile.data.remote.dto.CreateMultipartUploadResponseDto
 import com.postiz.mobile.data.remote.dto.CreatePostRequestDto
 import com.postiz.mobile.data.remote.dto.CustomerDto
 import com.postiz.mobile.data.remote.dto.FindSlotResponseDto
 import com.postiz.mobile.data.remote.dto.GetPostsResponseDto
 import com.postiz.mobile.data.remote.dto.IntegrationDto
 import com.postiz.mobile.data.remote.dto.IntegrationSettingsResponseDto
+import com.postiz.mobile.data.remote.dto.SignPartRequestDto
+import com.postiz.mobile.data.remote.dto.SignPartResponseDto
 import com.postiz.mobile.data.remote.dto.SocialConnectResponseDto
 import com.postiz.mobile.data.remote.dto.UploadFromUrlRequestDto
 import com.postiz.mobile.data.remote.dto.UploadResponseDto
@@ -83,6 +90,18 @@ interface PostizApiService {
     @Multipart
     @POST("upload")
     suspend fun uploadFile(@Part file: MultipartBody.Part): UploadResponseDto
+
+    @POST("upload/create-multipart-upload")
+    suspend fun createMultipartUpload(@Body request: CreateMultipartUploadRequestDto): CreateMultipartUploadResponseDto
+
+    @POST("upload/sign-part")
+    suspend fun signPart(@Body request: SignPartRequestDto): SignPartResponseDto
+
+    @POST("upload/complete-multipart-upload")
+    suspend fun completeMultipartUpload(@Body request: CompleteMultipartUploadRequestDto): CompleteMultipartUploadResponseDto
+
+    @POST("upload/abort-multipart-upload")
+    suspend fun abortMultipartUpload(@Body request: AbortMultipartUploadRequestDto): Response<Unit>
 
     @POST("upload-from-url")
     suspend fun uploadFromUrl(@Body request: UploadFromUrlRequestDto): UploadResponseDto

@@ -1,7 +1,7 @@
-# Postiz Mobile
+# SocioBirdMobile
 
-A "bring your own instance" Android client for **Postiz** (the open-source
-social-media scheduler, and specifically the
+A "bring your own instance" Android client for **SocioBird** (built on
+**Postiz**, the open-source social-media scheduler, and specifically the
 [`halleshubham/shacky-postiz`](https://github.com/halleshubham/shacky-postiz)
 fork). Instead of hard-coding a server, the self-hoster types their own
 **Server URL** and **API key** on first launch, and everything else in the
@@ -83,7 +83,7 @@ from its own source rather than invented.
 ## Running it / getting an APK
 
 **Option A — Android Studio (easiest, gives you a device install directly)**
-1. Open the `PostizMobile/` folder in Android Studio (Iguana or newer).
+1. Open the `SocioBirdMobile/` folder in Android Studio (Iguana or newer).
    Studio will offer to add the Gradle wrapper automatically on sync —
    accept that (the wrapper jar itself isn't checked in here since it's a
    binary). Alternatively run `gradle wrapper` yourself if you have Gradle
@@ -96,7 +96,7 @@ from its own source rather than invented.
 1. Push this folder to a GitHub repo.
 2. `.github/workflows/build-apk.yml` (included) builds a debug APK on every
    push, or on demand via the "Run workflow" button.
-3. Download the `postiz-mobile-debug-apk` artifact from the completed run,
+3. Download the `sociobird-mobile-debug-apk` artifact from the completed run,
    or grab the latest one from [Releases](../../releases), and install it
    on a device (enable "install unknown apps" first).
 
