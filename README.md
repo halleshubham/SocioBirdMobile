@@ -1,4 +1,4 @@
-# SociobirdMobile
+# SocioBirdMobile
 
 A "bring your own instance" Android client for **SocioBird** (built on
 **Postiz**, the open-source social-media scheduler, and specifically the
@@ -83,7 +83,7 @@ from its own source rather than invented.
 ## Running it / getting an APK
 
 **Option A — Android Studio (easiest, gives you a device install directly)**
-1. Open the `SociobirdMobile/` folder in Android Studio (Iguana or newer).
+1. Open the `SocioBirdMobile/` folder in Android Studio (Iguana or newer).
    Studio will offer to add the Gradle wrapper automatically on sync —
    accept that (the wrapper jar itself isn't checked in here since it's a
    binary). Alternatively run `gradle wrapper` yourself if you have Gradle
