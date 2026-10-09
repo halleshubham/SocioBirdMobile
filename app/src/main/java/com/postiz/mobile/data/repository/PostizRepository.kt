@@ -117,10 +117,12 @@ class PostizRepository @Inject constructor(
     suspend fun uploadLargeFile(
         fileName: String,
         mimeType: String,
+        totalBytes: Long,
         openStream: () -> InputStream?,
+        onProgress: (Float) -> Unit,
         fallback: suspend () -> Resource<UploadResponseDto>
     ): Resource<UploadResponseDto> {
-        val result = safeCall { multipartUpload(fileName, mimeType, openStream) }
+        val result = safeCall { multipartUpload(fileName, mimeType, totalBytes, openStream, onProgress) }
         return when (result) {
             is Resource.Success -> result.data?.let { Resource.Success(it) } ?: fallback()
             is Resource.Error -> Resource.Error(result.message)
@@ -132,7 +134,9 @@ class PostizRepository @Inject constructor(
     private suspend fun multipartUpload(
         fileName: String,
         mimeType: String,
-        openStream: () -> InputStream?
+        totalBytes: Long,
+        openStream: () -> InputStream?,
+        onProgress: (Float) -> Unit
     ): UploadResponseDto? {
         val service = apiProvider.getService()
         val file = MultipartFileDto(fileName, mimeType)
@@ -150,11 +154,14 @@ class PostizRepository @Inject constructor(
             input.use { stream ->
                 val buffer = ByteArray(PART_SIZE)
                 var partNumber = 1
+                var sent = 0L
                 while (true) {
                     val length = readFully(stream, buffer)
                     if (length == 0) break
                     val eTag = putPart(created.key, created.uploadId, partNumber, buffer, length)
                     parts.add(UploadedPartDto(partNumber, eTag))
+                    sent += length
+                    if (totalBytes > 0) onProgress((sent.toFloat() / totalBytes).coerceAtMost(1f))
                     partNumber++
                 }
             }

@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.postiz.mobile.data.remote.dto.CreatePostRequestDto
+import com.postiz.mobile.data.remote.dto.CustomerDto
 import com.postiz.mobile.data.remote.dto.IntegrationDto
 import com.postiz.mobile.data.remote.dto.PostImageDto
 import com.postiz.mobile.data.remote.dto.PostIntegrationRefDto
@@ -60,6 +61,10 @@ data class CreatePostUiState(
     val scheduleMinute: Int = 0,
     val uploadedImages: List<PostImageDto> = emptyList(),
     val isUploadingImage: Boolean = false,
+    /** 0..1 progress of the file currently uploading, or null when unknown / idle. */
+    val uploadProgress: Float? = null,
+    /** e.g. "Uploading video 1 of 2" */
+    val uploadLabel: String? = null,
     val isLoadingIntegrations: Boolean = true,
     val isSubmitting: Boolean = false,
     val isSuggestingSlot: Boolean = false,
@@ -68,6 +73,16 @@ data class CreatePostUiState(
     val error: String? = null,
     val submitted: Boolean = false
 ) {
+    /** Brands present among the connected channels, derived from each channel's customer. */
+    val brands: List<CustomerDto>
+        get() = integrations.mapNotNull { it.customer }.distinctBy { it.id }.sortedBy { it.name.lowercase() }
+
+    /** A brand counts as selected when every one of its channels is selected. */
+    fun isBrandSelected(brandId: String): Boolean {
+        val ids = integrations.filter { it.customer?.id == brandId }.map { it.id }
+        return ids.isNotEmpty() && selectedIntegrationIds.containsAll(ids)
+    }
+
     /** The picked local date, or today if none picked yet (sensible picker default). */
     val scheduleLocalDate: LocalDate
         get() = scheduleDateMillisUtc
@@ -125,6 +140,17 @@ class CreatePostViewModel @Inject constructor(
         refreshMaxLength()
     }
 
+    /** Quick-select: toggles every channel belonging to the brand at once. */
+    fun toggleBrand(brandId: String) {
+        val ids = uiState.integrations.filter { it.customer?.id == brandId }.map { it.id }.toSet()
+        if (ids.isEmpty()) return
+        val current = uiState.selectedIntegrationIds
+        uiState = uiState.copy(
+            selectedIntegrationIds = if (current.containsAll(ids)) current - ids else current + ids
+        )
+        refreshMaxLength()
+    }
+
     /** The composer's character limit is the tightest one among the currently selected channels. */
     private fun refreshMaxLength() {
         val ids = uiState.selectedIntegrationIds
@@ -152,51 +178,66 @@ class CreatePostViewModel @Inject constructor(
         uiState = uiState.copy(scheduleHour = hour, scheduleMinute = minute)
     }
 
-    /** Uploads every picked file concurrently and appends whichever succeed to the existing selection. */
+    /**
+     * Uploads picked files one at a time (a 1 GB video must not compete with
+     * other uploads for the mobile uplink) and appends whichever succeed to
+     * the existing selection, reporting byte-level progress as it goes.
+     */
     fun onImagesPicked(uris: List<Uri>) {
         if (uris.isEmpty()) return
         viewModelScope.launch {
-            uiState = uiState.copy(isUploadingImage = true, error = null)
+            uiState = uiState.copy(isUploadingImage = true, uploadProgress = null, uploadLabel = null, error = null)
             val resolver = appContext.contentResolver
-            val results = uris.map { uri ->
-                async {
-                    val mimeType = resolver.getType(uri) ?: "application/octet-stream"
-                    // The server sniffs the real content from magic bytes and only
-                    // allows video/mp4 for video (any other container/codec 400s
-                    // after the whole file has already been uploaded) -- catching
-                    // it here skips a slow, doomed upload instead of surprising
-                    // the user with a generic "Request failed (400)" after a wait.
-                    if (mimeType.startsWith("video/") && mimeType != "video/mp4") {
-                        return@async Resource.Error(
-                            "This server only accepts MP4 video; this file is $mimeType. Try converting it to MP4 first."
-                        )
-                    }
-                    val part = try {
-                        uriToMultipart(uri, mimeType)
-                    } catch (e: Exception) {
-                        return@async Resource.Error("Couldn't read that file")
-                    }
-                    val size = runCatching { resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } }.getOrNull() ?: -1L
-                    if (size > MULTIPART_THRESHOLD_BYTES) {
-                        // too big to send through the server and the proxy in front of it
-                        repository.uploadLargeFile(
-                            fileName = multipartFileName(mimeType),
-                            mimeType = mimeType,
-                            openStream = { resolver.openInputStream(uri) },
-                            fallback = { repository.uploadFile(part) }
-                        )
-                    } else {
-                        repository.uploadFile(part)
-                    }
-                }
-            }.awaitAll()
+            val uploaded = mutableListOf<PostImageDto>()
+            var firstError: String? = null
 
-            val uploaded = results.filterIsInstance<Resource.Success<UploadResponseDto>>()
-                .map { PostImageDto(id = it.data.id, path = it.data.path) }
-            val firstError = results.filterIsInstance<Resource.Error>().firstOrNull()?.message
+            uris.forEachIndexed { index, uri ->
+                val mimeType = resolver.getType(uri) ?: "application/octet-stream"
+                val isVideo = mimeType.startsWith("video/")
+                uiState = uiState.copy(
+                    uploadProgress = 0f,
+                    uploadLabel = "Uploading ${if (isVideo) "video" else "file"} ${index + 1} of ${uris.size}"
+                )
+                // The server sniffs the real content from magic bytes and only
+                // allows video/mp4 for video (any other container/codec 400s
+                // after the whole file has already been uploaded) -- catching
+                // it here skips a slow, doomed upload.
+                if (isVideo && mimeType != "video/mp4") {
+                    if (firstError == null) firstError =
+                        "This server only accepts MP4 video; this file is $mimeType. Try converting it to MP4 first."
+                    return@forEachIndexed
+                }
+                val part = try {
+                    uriToMultipart(uri, mimeType) { fraction -> uiState = uiState.copy(uploadProgress = fraction) }
+                } catch (e: Exception) {
+                    if (firstError == null) firstError = "Couldn't read that file"
+                    return@forEachIndexed
+                }
+                val size = runCatching { resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } }.getOrNull() ?: -1L
+                val response = if (size > MULTIPART_THRESHOLD_BYTES) {
+                    // too big to send through the server and the proxy in front of it
+                    repository.uploadLargeFile(
+                        fileName = multipartFileName(mimeType),
+                        mimeType = mimeType,
+                        totalBytes = size,
+                        openStream = { resolver.openInputStream(uri) },
+                        onProgress = { fraction -> uiState = uiState.copy(uploadProgress = fraction) },
+                        fallback = { repository.uploadFile(part) }
+                    )
+                } else {
+                    repository.uploadFile(part)
+                }
+                when (val result = response) {
+                    is Resource.Success -> uploaded += PostImageDto(id = result.data.id, path = result.data.path)
+                    is Resource.Error -> if (firstError == null) firstError = result.message
+                    Resource.Loading -> Unit
+                }
+            }
 
             uiState = uiState.copy(
                 isUploadingImage = false,
+                uploadProgress = null,
+                uploadLabel = null,
                 uploadedImages = uiState.uploadedImages + uploaded,
                 error = firstError
             )
@@ -297,6 +338,12 @@ class CreatePostViewModel @Inject constructor(
                         when (integration.identifier) {
                             "x" -> put("who_can_reply_post", JsonPrimitive("everyone"))
                             "instagram", "instagram-standalone" -> put("post_type", JsonPrimitive("post"))
+                            // YouTube requires a title (2-100 chars) and a visibility;
+                            // the first line of the post text becomes the video title.
+                            "youtube" -> {
+                                put("title", JsonPrimitive(youtubeTitle(uiState.content)))
+                                put("type", JsonPrimitive("public"))
+                            }
                         }
                     }
                 )
@@ -320,7 +367,11 @@ class CreatePostViewModel @Inject constructor(
      * but slow and OOM-risky for a large video: everything sits in memory
      * before the upload even starts writing to the network).
      */
-    private fun uriToMultipart(uri: Uri, mimeType: String): MultipartBody.Part {
+    private fun uriToMultipart(
+        uri: Uri,
+        mimeType: String,
+        onProgress: (Float) -> Unit
+    ): MultipartBody.Part {
         val resolver = appContext.contentResolver
         val fileName = "upload_${System.currentTimeMillis()}"
         val body = object : RequestBody() {
@@ -330,8 +381,26 @@ class CreatePostViewModel @Inject constructor(
                 runCatching { resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } }.getOrNull() ?: -1L
 
             override fun writeTo(sink: BufferedSink) {
+                val total = contentLength()
                 val input = resolver.openInputStream(uri) ?: throw IllegalStateException("Empty file")
-                input.use { stream -> sink.writeAll(stream.source()) }
+                input.use { stream ->
+                    val source = stream.source()
+                    var written = 0L
+                    var lastReported = -1
+                    while (true) {
+                        val read = source.read(sink.buffer, 64L * 1024)
+                        if (read == -1L) break
+                        sink.emitCompleteSegments()
+                        written += read
+                        if (total > 0) {
+                            val pct = (written * 100 / total).toInt()
+                            if (pct != lastReported) {
+                                lastReported = pct
+                                onProgress(written.toFloat() / total)
+                            }
+                        }
+                    }
+                }
             }
         }
         return MultipartBody.Part.createFormData("file", fileName, body)
@@ -347,4 +416,11 @@ class CreatePostViewModel @Inject constructor(
         // above this a file goes straight to storage in parts instead of through /upload
         const val MULTIPART_THRESHOLD_BYTES = 50L * 1024 * 1024
     }
+}
+
+/** First non-blank line of the post, trimmed to YouTube's 100-char title limit (min 2 chars). */
+internal fun youtubeTitle(content: String): String {
+    val firstLine = content.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }.orEmpty()
+    val title = firstLine.take(100).trim()
+    return if (title.length >= 2) title else title.padEnd(2, '.')
 }

@@ -88,8 +88,11 @@ class PostizApiProvider @Inject constructor(
             // real reel upload mid-transfer. These only bound how long a
             // single read/write op may stall, not the request as a whole,
             // so ordinary JSON calls aren't affected.
-            .readTimeout(5, TimeUnit.MINUTES)
-            .writeTimeout(5, TimeUnit.MINUTES)
+            .readTimeout(15, TimeUnit.MINUTES) // server may process/transfer a big file before replying
+            .writeTimeout(10, TimeUnit.MINUTES)
+            // No overall call deadline: a 1 GB video on mobile data can take
+            // far longer than any fixed cap, as long as bytes keep moving.
+            .callTimeout(0, TimeUnit.MILLISECONDS)
             .build()
 
         val retrofit = Retrofit.Builder()
