@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "PostizMobile"
+rootProject.name = "SociobirdMobile"
 include(":app")

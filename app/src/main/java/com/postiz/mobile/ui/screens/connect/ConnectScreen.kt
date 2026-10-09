@@ -129,7 +129,7 @@ fun ConnectScreen(viewModel: ConnectViewModel = hiltViewModel()) {
         Spacer(Modifier.height(28.dp))
 
         Text(
-            "Need an API key? Open your Postiz web app → Settings → Developer.",
+            "Need an API key? Open your Sociobird web app → Settings → Developer.",
             style = MaterialTheme.typography.bodyMedium,
             color = muted,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp),

@@ -120,7 +120,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
         Spacer(Modifier.weight(1f))
 
         Text(
-            "Shacky Postiz · v${BuildConfig.VERSION_NAME}",
+            "SociobirdMobile · v${BuildConfig.VERSION_NAME}",
             style = MaterialTheme.typography.bodyMedium,
             color = muted.copy(alpha = 0.7f),
             modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
