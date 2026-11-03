@@ -40,6 +40,23 @@ android {
         }
     }
 
+    flavorDimensions += "edition"
+    productFlavors {
+        // Original "bring your own instance" app: user types Server URL + API key.
+        create("generic") {
+            dimension = "edition"
+            buildConfigField("String", "LOCKED_SERVER_URL", "\"\"")
+        }
+        // go.sociobird.app edition: server baked in, web-app style email/password
+        // login, the org API key is fetched automatically after signing in.
+        create("sociobird") {
+            dimension = "edition"
+            applicationIdSuffix = ".sociobird"
+            versionNameSuffix = "-sociobird"
+            buildConfigField("String", "LOCKED_SERVER_URL", "\"https://go.sociobird.app\"")
+        }
+    }
+
     buildTypes {
         release {
             signingConfigs.findByName("release")?.let { signingConfig = it }

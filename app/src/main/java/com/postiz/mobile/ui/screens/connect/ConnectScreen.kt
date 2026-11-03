@@ -144,7 +144,7 @@ fun ConnectScreen(viewModel: ConnectViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun EditorialField(
+internal fun EditorialField(
     label: String?,
     value: String,
     onValueChange: (String) -> Unit,

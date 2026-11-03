@@ -6,7 +6,9 @@ import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.postiz.mobile.ui.components.FullScreenLoading
 import com.postiz.mobile.ui.main.MainScaffold
+import com.postiz.mobile.BuildConfig
 import com.postiz.mobile.ui.screens.connect.ConnectScreen
+import com.postiz.mobile.ui.screens.connect.LoginScreen
 
 @Composable
 fun PostizNavGraph(rootViewModel: RootViewModel = hiltViewModel()) {
@@ -14,7 +16,7 @@ fun PostizNavGraph(rootViewModel: RootViewModel = hiltViewModel()) {
 
     when (hasSession) {
         null -> FullScreenLoading()
-        false -> ConnectScreen()
+        false -> if (BuildConfig.LOCKED_SERVER_URL.isNotEmpty()) LoginScreen() else ConnectScreen()
         true -> MainScaffold()
     }
 }
