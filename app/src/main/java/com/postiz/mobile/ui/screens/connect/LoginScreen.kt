@@ -3,7 +3,9 @@ package com.postiz.mobile.ui.screens.connect
 import android.content.Intent
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,13 +30,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.postiz.mobile.R
 
 /** Email/password sign-in for the go.sociobird.app edition (mirrors the web app's login page). */
 @Composable
@@ -155,20 +160,29 @@ fun LoginScreen(onUseApiKey: () -> Unit = {}, viewModel: LoginViewModel = hiltVi
         }
 
         Spacer(Modifier.height(14.dp))
+        // Google's sign-in button style: white pill, thin grey border, the multicolour G and dark text.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 28.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(999.dp))
+                .background(Color.White, RoundedCornerShape(999.dp))
+                .border(1.dp, Color(0xFF747775), RoundedCornerShape(999.dp))
                 .clickable(enabled = !state.isLoading) {
                     viewModel.startGoogleSignIn { url ->
                         runCatching { CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url)) }
                     }
                 }
-                .padding(vertical = 16.dp),
-            horizontalArrangement = Arrangement.Center
+                .padding(vertical = 14.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Continue with Google", style = MaterialTheme.typography.titleMedium, color = ink)
+            Image(
+                painter = painterResource(R.drawable.ic_google_g),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.size(12.dp))
+            Text("Continue with Google", style = MaterialTheme.typography.titleMedium, color = Color(0xFF1F1F1F))
         }
 
         Spacer(Modifier.height(20.dp))
