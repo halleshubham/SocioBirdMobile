@@ -32,11 +32,11 @@ fun AddChannelScreen(onBack: () -> Unit, viewModel: AddChannelViewModel = hiltVi
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val accent = MaterialTheme.colorScheme.primary
     val ink = MaterialTheme.colorScheme.onBackground
-    val hairline = MaterialTheme.colorScheme.outline
+    val hairline = MaterialTheme.colorScheme.outlineVariant
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
 
-        Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 30.dp)) {
+        Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp)) {
             Text(
                 "‹ Channels",
                 style = MaterialTheme.typography.bodyMedium,

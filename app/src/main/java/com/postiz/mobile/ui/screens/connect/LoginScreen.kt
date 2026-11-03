@@ -49,7 +49,7 @@ fun LoginScreen(onUseApiKey: () -> Unit = {}, viewModel: LoginViewModel = hiltVi
     val ink = MaterialTheme.colorScheme.onBackground
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val accent = MaterialTheme.colorScheme.primary
-    val hairline = MaterialTheme.colorScheme.outline
+    val hairline = MaterialTheme.colorScheme.outlineVariant
 
     fun openWeb(path: String) {
         runCatching {

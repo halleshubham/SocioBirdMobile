@@ -72,15 +72,10 @@ fun IntegrationsScreen(
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 30.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                "‹ Posts",
-                style = MaterialTheme.typography.bodyMedium,
-                color = muted,
-                modifier = Modifier.clickable(onClick = onBack)
-            )
+            Spacer(Modifier.width(1.dp)) // header actions stay on the right
             Row {
                 Text(
                     "↻ Refresh",
@@ -172,7 +167,7 @@ private fun IntegrationRow(
     val ink = MaterialTheme.colorScheme.onBackground
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val accent = MaterialTheme.colorScheme.primary
-    val hairline = MaterialTheme.colorScheme.outline
+    val hairline = MaterialTheme.colorScheme.outlineVariant
 
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onTap).padding(vertical = 16.dp),

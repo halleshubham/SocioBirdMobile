@@ -71,7 +71,7 @@ fun PostsListScreen(
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val accent = MaterialTheme.colorScheme.primary
     val ink = MaterialTheme.colorScheme.onBackground
-    val hairline = MaterialTheme.colorScheme.outline
+    val hairline = MaterialTheme.colorScheme.outlineVariant
 
     val weekStart = remember(selectedDate) { selectedDate.with(DayOfWeek.MONDAY) }
     val weekDays = remember(weekStart) { (0..6).map { weekStart.plusDays(it.toLong()) } }
@@ -79,7 +79,7 @@ fun PostsListScreen(
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 20.dp, start = 12.dp, end = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, start = 12.dp, end = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -273,7 +273,7 @@ private fun PostRow(
     val ink = MaterialTheme.colorScheme.onBackground
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val accent = MaterialTheme.colorScheme.primary
-    val hairline = MaterialTheme.colorScheme.outline
+    val hairline = MaterialTheme.colorScheme.outlineVariant
 
     Row(
         modifier = Modifier
