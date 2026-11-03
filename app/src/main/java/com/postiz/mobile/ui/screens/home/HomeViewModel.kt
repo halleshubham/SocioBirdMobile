@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.postiz.mobile.data.remote.dto.IntegrationDto
 import com.postiz.mobile.data.remote.dto.PostDto
 import com.postiz.mobile.data.repository.PostizRepository
+import com.postiz.mobile.ui.screens.posts.CalendarFocus
+import com.postiz.mobile.ui.screens.posts.StatusFilter
 import com.postiz.mobile.util.Resource
 import com.postiz.mobile.util.localDateOf
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,7 +44,8 @@ data class HomeUi(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val repository: PostizRepository
+    private val repository: PostizRepository,
+    private val calendarFocus: CalendarFocus
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<Resource<HomeUi>>(Resource.Loading)
@@ -51,6 +54,9 @@ class HomeViewModel @Inject constructor(
     init {
         load()
     }
+
+    /** "Review" on the attention card: the calendar opens on the failed posts. */
+    fun reviewFailed() = calendarFocus.request(StatusFilter.FAILED)
 
     fun load() {
         viewModelScope.launch {

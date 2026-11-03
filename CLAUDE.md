@@ -47,7 +47,12 @@ The app follows a Material 3 design system; read this before touching a screen.
 - **Home** (`ui/screens/home`): built only from `GET /posts` and `GET /integrations` (no backend change): getting-started checklist for new accounts,
   "Needs attention" (failed posts = state `ERROR` in the last 30 days, disabled channels), up to 3 "Up next" scheduled posts, this-week counts and a
   7-day strip, quick actions, channel avatars. The 7-day performance snapshot is deliberately not there yet (planned with Insights).
-- **Old screens** (calendar list, composer, channels, add channel, analytics, settings, sign-in) still use the earlier "editorial" layout on the new
+- **Calendar** (`ui/screens/posts/PostsListScreen.kt`, `PostsViewModel`): Week/Month toggle with per-day post counts, status filter chips
+  (All / Scheduled / Published / Drafts / Failed with a count) and brand chips, post cards (`PlatformAvatar`, time, 3-line preview, `StatusChip`),
+  tap = detail bottom sheet (analytics for published, draft/queue toggle, delete), swipe-to-delete with an **Undo snackbar** (the delete really
+  happens in the view model after 4.5 s, so leaving the screen does not lose it), pull-to-refresh. `CalendarFocus` is a singleton that lets
+  Home's "Review" open the calendar on the Failed filter. The calendar cannot edit a post (no API for it).
+- **Old screens** (composer, channels, add channel, analytics, settings, sign-in) still use the earlier "editorial" layout on the new
   theme and are being migrated phase by phase (calendar, composer, channels/insights, polish). When you change one, move it to `SbComponents`.
 
 ## Build commands
@@ -73,7 +78,7 @@ CI (`.github/workflows`):
 - `targetSdk`/`compileSdk` 36. Google requires new apps and updates to target API 36 (since 2026-08-31),
   so never lower it. That needs AGP 8.9.1 and Gradle 8.11.1 (already set).
 - `versionCode` must be higher than the last upload to Play. The default is in `app/build.gradle.kts`
-  (`?: 10`); bump it for every release, or pass `-PversionCode=N -PversionName=x.y.z`.
+  (`?: 11`); bump it for every release, or pass `-PversionCode=N -PversionName=x.y.z`.
 - Signing: upload key from `keystore.properties` at the repo root (git-ignored) with
   `storeFile`, `storePassword`, `keyAlias`, `keyPassword`. Without it the release build is unsigned. The keystore
   (`sociobird-upload.jks`, alias `sociobird-upload`) is held by the owner, never committed. Play App Signing is on.
