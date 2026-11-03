@@ -2,6 +2,7 @@ package com.postiz.mobile.ui.screens.connect
 
 import android.content.Intent
 import android.net.Uri
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -115,7 +116,7 @@ fun LoginScreen(onUseApiKey: () -> Unit = {}, viewModel: LoginViewModel = hiltVi
                 modifier = Modifier.padding(top = 14.dp).clickable { openWeb("/auth/forgot") }.padding(vertical = 6.dp)
             )
             Text(
-                "Signed up with Google? Use your API key instead",
+                "Prefer an API key? Use it instead",
                 style = MaterialTheme.typography.bodyMedium,
                 color = accent,
                 modifier = Modifier.clickable(onClick = onUseApiKey).padding(vertical = 6.dp)
@@ -151,6 +152,23 @@ fun LoginScreen(onUseApiKey: () -> Unit = {}, viewModel: LoginViewModel = hiltVi
             } else {
                 Text("Sign in", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimary)
             }
+        }
+
+        Spacer(Modifier.height(14.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 28.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(999.dp))
+                .clickable(enabled = !state.isLoading) {
+                    viewModel.startGoogleSignIn { url ->
+                        runCatching { CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url)) }
+                    }
+                }
+                .padding(vertical = 16.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text("Continue with Google", style = MaterialTheme.typography.titleMedium, color = ink)
         }
 
         Spacer(Modifier.height(20.dp))

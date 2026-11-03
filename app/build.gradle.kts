@@ -16,8 +16,8 @@ android {
         applicationId = "com.shackyapps.sociobird"
         minSdk = 26
         targetSdk = 36
-        // CI can override these (-PversionCode=7 -PversionName=1.0.1)
-        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 7
+        // CI can override these (-PversionCode=8 -PversionName=1.0.1)
+        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 8
         versionName = (findProperty("versionName") as String?) ?: "1.0.0"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -105,6 +105,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
     implementation("androidx.activity:activity-compose:1.9.1")
+    implementation("androidx.browser:browser:1.8.0") // Chrome Custom Tab for Google sign-in
 
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")

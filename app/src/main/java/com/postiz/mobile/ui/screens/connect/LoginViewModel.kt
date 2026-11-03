@@ -6,6 +6,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.postiz.mobile.BuildConfig
+import com.postiz.mobile.data.auth.OAuthCallback
+import com.postiz.mobile.data.auth.OAuthCallbackBus
 import com.postiz.mobile.data.local.SessionManager
 import com.postiz.mobile.data.remote.PostizApiProvider
 import com.postiz.mobile.data.repository.PostizRepository
@@ -21,6 +23,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -47,7 +50,8 @@ data class LoginUiState(
 class LoginViewModel @Inject constructor(
     private val sessionManager: SessionManager,
     private val apiProvider: PostizApiProvider,
-    private val repository: PostizRepository
+    private val repository: PostizRepository,
+    private val oauthCallbackBus: OAuthCallbackBus
 ) : ViewModel() {
 
     var uiState by mutableStateOf(LoginUiState())
@@ -60,6 +64,20 @@ class LoginViewModel @Inject constructor(
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
     private val json = Json { ignoreUnknownKeys = true }
+
+    /** The backend's mobile callback, which bounces into the app (MOBILE_APP_SCHEME on the server). */
+    private val oauthRedirectUri = "$serverUrl/api/auth/oauth-mobile-callback"
+
+    init {
+        viewModelScope.launch {
+            oauthCallbackBus.callback.collect { callback ->
+                if (callback != null) {
+                    oauthCallbackBus.consume()
+                    handleGoogleCallback(callback)
+                }
+            }
+        }
+    }
 
     fun onEmailChange(value: String) {
         uiState = uiState.copy(email = value, error = null)
@@ -78,33 +96,68 @@ class LoginViewModel @Inject constructor(
         }
         viewModelScope.launch {
             uiState = uiState.copy(isLoading = true, error = null)
-            val outcome = try {
-                withContext(Dispatchers.IO) { loginAndFetchKey(email, password) }
+            finish(runCatchingOutcome { loginAndFetchKey(email, password) })
+        }
+    }
+
+    /** Opens Google's consent screen: the backend builds the URL, the caller shows it in a Chrome Custom Tab. */
+    fun startGoogleSignIn(open: (String) -> Unit) {
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoading = true, error = null)
+            val url = try {
+                withContext(Dispatchers.IO) { fetchGoogleUrl() }
             } catch (e: IOException) {
-                Outcome.Failure("Can't reach ${serverUrl.removePrefix("https://")}. Check your connection.")
-            } catch (e: Exception) {
-                Outcome.Failure(e.message ?: "Something went wrong")
+                uiState = uiState.copy(isLoading = false, error = "Can't reach ${serverUrl.removePrefix("https://")}. Check your connection.")
+                return@launch
             }
-            when (outcome) {
-                is Outcome.Failure -> uiState = uiState.copy(isLoading = false, error = outcome.message)
-                is Outcome.Key -> {
-                    sessionManager.saveSession(serverUrl, outcome.apiKey, isCloud = false)
-                    apiProvider.invalidate()
-                    when (val check = repository.checkConnection()) {
-                        is Resource.Success ->
-                            if (check.data) {
-                                // sessionManager's Flow now emits a valid session; nav swaps to the main app.
-                                uiState = uiState.copy(isLoading = false, password = "")
-                            } else {
-                                sessionManager.clearSession()
-                                uiState = uiState.copy(isLoading = false, error = "Signed in, but the server rejected the API key")
-                            }
-                        is Resource.Error -> {
+            if (url == null) {
+                uiState = uiState.copy(isLoading = false, error = "Google sign-in isn't available right now")
+            } else {
+                uiState = uiState.copy(isLoading = false)
+                open(url)
+            }
+        }
+    }
+
+    private fun handleGoogleCallback(callback: OAuthCallback) {
+        if (callback.code.isNullOrBlank()) {
+            uiState = uiState.copy(isLoading = false, error = "Google sign-in was cancelled")
+            return
+        }
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoading = true, error = null)
+            finish(runCatchingOutcome { exchangeGoogleCode(callback.code, callback.state) })
+        }
+    }
+
+    private suspend fun runCatchingOutcome(block: () -> Outcome): Outcome = try {
+        withContext(Dispatchers.IO) { block() }
+    } catch (e: IOException) {
+        Outcome.Failure("Can't reach ${serverUrl.removePrefix("https://")}. Check your connection.")
+    } catch (e: Exception) {
+        Outcome.Failure(e.message ?: "Something went wrong")
+    }
+
+    private suspend fun finish(outcome: Outcome) {
+        when (outcome) {
+            is Outcome.Failure -> uiState = uiState.copy(isLoading = false, error = outcome.message)
+            is Outcome.Key -> {
+                sessionManager.saveSession(serverUrl, outcome.apiKey, isCloud = false)
+                apiProvider.invalidate()
+                when (val check = repository.checkConnection()) {
+                    is Resource.Success ->
+                        if (check.data) {
+                            // sessionManager's Flow now emits a valid session; nav swaps to the main app.
+                            uiState = uiState.copy(isLoading = false, password = "")
+                        } else {
                             sessionManager.clearSession()
-                            uiState = uiState.copy(isLoading = false, error = check.message)
+                            uiState = uiState.copy(isLoading = false, error = "Signed in, but the server rejected the API key")
                         }
-                        Resource.Loading -> Unit
+                    is Resource.Error -> {
+                        sessionManager.clearSession()
+                        uiState = uiState.copy(isLoading = false, error = check.message)
                     }
+                    Resource.Loading -> Unit
                 }
             }
         }
@@ -141,7 +194,11 @@ class LoginViewModel @Inject constructor(
                     ?.substringAfter("auth=")?.substringBefore(";")
         }
         if (jwt.isNullOrBlank()) return Outcome.Failure("Signed in, but no session token was returned")
+        return fetchApiKey(jwt)
+    }
 
+    /** GET /user/self: the org API key (`publicApi`) with the session JWT. */
+    private fun fetchApiKey(jwt: String): Outcome {
         val selfRequest = Request.Builder().url("$serverUrl/api/user/self").header("auth", jwt).get().build()
         client.newCall(selfRequest).execute().use { response ->
             if (!response.isSuccessful) return Outcome.Failure("Couldn't load your account (${response.code})")
@@ -152,5 +209,47 @@ class LoginViewModel @Inject constructor(
             }
             return Outcome.Key(key)
         }
+    }
+
+    private fun fetchGoogleUrl(): String? {
+        val url = "$serverUrl/api/auth/oauth/GOOGLE".toHttpUrl().newBuilder()
+            .addQueryParameter("redirect_uri", oauthRedirectUri)
+            .build()
+        client.newCall(Request.Builder().url(url).get().build()).execute().use { response ->
+            if (!response.isSuccessful) return null
+            val text = response.body?.string().orEmpty().trim().trim('"')
+            return text.takeIf { it.startsWith("https://accounts.google.com/") }
+        }
+    }
+
+    /** POST /auth/oauth/GOOGLE/exists: an existing account gets the session JWT, a new Google user gets a provider token only. */
+    private fun exchangeGoogleCode(code: String, state: String?): Outcome {
+        val body = buildJsonObject {
+            put("code", JsonPrimitive(code))
+            put("redirect_uri", JsonPrimitive(oauthRedirectUri))
+            if (!state.isNullOrBlank()) put("state", JsonPrimitive(state))
+        }.toString().toRequestBody("application/json".toMediaType())
+
+        val request = Request.Builder().url("$serverUrl/api/auth/oauth/GOOGLE/exists").post(body).build()
+        val jwt = client.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty().trim()
+            if (!response.isSuccessful) {
+                return Outcome.Failure(
+                    when {
+                        text.isNotEmpty() && text.length < 200 && !text.startsWith("<") -> text
+                        else -> "Google sign-in failed (${response.code})"
+                    }
+                )
+            }
+            if (text.contains("\"token\"")) {
+                return Outcome.Failure("No SocioBird account for this Google email yet. Create one at go.sociobird.app, then sign in here.")
+            }
+            response.header("auth")
+                ?: response.headers("Set-Cookie")
+                    .firstOrNull { it.startsWith("auth=") }
+                    ?.substringAfter("auth=")?.substringBefore(";")
+        }
+        if (jwt.isNullOrBlank()) return Outcome.Failure("Signed in with Google, but no session token was returned")
+        return fetchApiKey(jwt)
     }
 }
