@@ -26,7 +26,10 @@ private val Context.dataStore by preferencesDataStore(name = "postiz_session")
 data class Session(
     val serverUrl: String = "",
     val apiToken: String = "",
-    val isCloud: Boolean = false
+    val isCloud: Boolean = false,
+    /** Filled by the email / Google sign-in (from GET /user/self); blank for API-key sessions. */
+    val email: String = "",
+    val name: String = ""
 ) {
     val isValid: Boolean get() = serverUrl.isNotBlank() && apiToken.isNotBlank()
 }
@@ -39,23 +42,29 @@ class SessionManager @Inject constructor(
         val SERVER_URL = stringPreferencesKey("server_url")
         val API_TOKEN = stringPreferencesKey("api_token")
         val IS_CLOUD = booleanPreferencesKey("is_cloud")
+        val EMAIL = stringPreferencesKey("email")
+        val NAME = stringPreferencesKey("name")
     }
 
     val sessionFlow: Flow<Session> = context.dataStore.data.map { prefs ->
         Session(
             serverUrl = prefs[Keys.SERVER_URL].orEmpty(),
             apiToken = prefs[Keys.API_TOKEN].orEmpty(),
-            isCloud = prefs[Keys.IS_CLOUD] ?: false
+            isCloud = prefs[Keys.IS_CLOUD] ?: false,
+            email = prefs[Keys.EMAIL].orEmpty(),
+            name = prefs[Keys.NAME].orEmpty()
         )
     }
 
     suspend fun currentSession(): Session = sessionFlow.first()
 
-    suspend fun saveSession(serverUrl: String, apiToken: String, isCloud: Boolean) {
+    suspend fun saveSession(serverUrl: String, apiToken: String, isCloud: Boolean, email: String = "", name: String = "") {
         context.dataStore.edit { prefs ->
             prefs[Keys.SERVER_URL] = serverUrl.trim()
             prefs[Keys.API_TOKEN] = apiToken.trim()
             prefs[Keys.IS_CLOUD] = isCloud
+            prefs[Keys.EMAIL] = email.trim()
+            prefs[Keys.NAME] = name.trim()
         }
     }
 

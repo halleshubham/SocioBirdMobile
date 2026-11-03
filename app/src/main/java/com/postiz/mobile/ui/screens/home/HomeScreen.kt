@@ -73,6 +73,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val firstName by viewModel.firstName.collectAsState()
 
     // Coming back from the composer or the channel flow: refresh so Home never shows stale counts.
     LifecycleResumeEffect(Unit) {
@@ -85,7 +86,7 @@ fun HomeScreen(
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        item { HomeHeader(onRefresh = viewModel::load) }
+        item { HomeHeader(firstName = firstName, onRefresh = viewModel::load) }
 
         when (val s = state) {
             is Resource.Loading -> item { HomeSkeleton() }
@@ -170,7 +171,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HomeHeader(onRefresh: () -> Unit) {
+private fun HomeHeader(firstName: String?, onRefresh: () -> Unit) {
     val now = LocalTime.now().hour
     val greeting = when {
         now < 12 -> "Good morning"
@@ -188,7 +189,7 @@ private fun HomeHeader(onRefresh: () -> Unit) {
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(greeting, style = MaterialTheme.typography.headlineMedium)
+            Text(if (firstName != null) "$greeting, $firstName" else greeting, style = MaterialTheme.typography.headlineMedium)
         }
         IconButton(onClick = onRefresh) {
             Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MaterialTheme.colorScheme.onSurfaceVariant)
