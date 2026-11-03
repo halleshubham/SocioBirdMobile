@@ -56,8 +56,17 @@ The app follows a Material 3 design system; read this before touching a screen.
   with the real per-channel character limit, media tray (photos, MP4/MOV video, big-file multipart upload with progress, "Add from a link"), When = Publish now / Schedule with
   quick picks (Next free slot, Today 6 PM, Tomorrow 9 AM) and date/time pickers, a generic feed preview, **Save draft** (`type: "draft"`), a discard guard on close/back, and a
   sticky Publish button inside `imePadding` that shows why it is disabled (`CreatePostUiState.blocker`). Posting in the past is rejected client-side.
-- **Old screens** (channels, add channel, analytics, settings, sign-in) still use the earlier "editorial" layout on the new
-  theme and are being migrated phase by phase (channels/insights, polish). When you change one, move it to `SbComponents`.
+- **Channels** (`ui/screens/integrations/IntegrationsScreen.kt`): cards (`PlatformAvatar`, name, platform name via `providerDisplayName()`, Active/Disabled chip, menu with
+  View analytics / Disconnect), grouped by brand when brands exist, pull-to-refresh (list stays on screen while refreshing), refresh on resume (the OAuth round trip happens in a
+  browser tab). Disabled channels cannot be re-enabled from the app (no API for it).
+- **Add channel** (`AddChannelScreen`/`AddChannelViewModel`): the grid comes from the server's public provider catalog, `GET /api/integrations` (no auth; relative path
+  `../../integrations` from the public API base URL), so providers the web hides as "coming soon" never appear. Providers without credentials fields open the OAuth URL (from
+  `GET /social/:id`) in a Chrome Custom Tab; ones that need typed-in credentials (WordPress, Medium, Dev.to, Hashnode, Listmonk, Lemmy, Botsab) or are web3 (Telegram) show
+  "Set up on web". If the catalog is unavailable the app falls back to a short list of OAuth providers.
+- **Insights** (`ui/screens/analytics`): channel and post analytics as metric cards with the headline number (latest value for follower-type metrics, sum for daily
+  metrics), change chip and a Canvas sparkline (no chart library), 7/30/90-day selector (`days` query param).
+- **Old screens** (settings, sign-in) still use the earlier "editorial" layout on the new theme and are migrated in the polish phase.
+  When you change one, move it to `SbComponents`.
 
 ## Build commands
 
@@ -82,7 +91,7 @@ CI (`.github/workflows`):
 - `targetSdk`/`compileSdk` 36. Google requires new apps and updates to target API 36 (since 2026-08-31),
   so never lower it. That needs AGP 8.9.1 and Gradle 8.11.1 (already set).
 - `versionCode` must be higher than the last upload to Play. The default is in `app/build.gradle.kts`
-  (`?: 13`); bump it for every release, or pass `-PversionCode=N -PversionName=x.y.z`.
+  (`?: 14`); bump it for every release, or pass `-PversionCode=N -PversionName=x.y.z`.
 - Signing: upload key from `keystore.properties` at the repo root (git-ignored) with
   `storeFile`, `storePassword`, `keyAlias`, `keyPassword`. Without it the release build is unsigned. The keystore
   (`sociobird-upload.jks`, alias `sociobird-upload`) is held by the owner, never committed. Play App Signing is on.

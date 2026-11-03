@@ -2,6 +2,7 @@ package com.postiz.mobile.data.remote.dto
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
@@ -269,4 +270,30 @@ data class AnalyticsDataDto(
 data class ApiErrorBodyDto(
     val msg: String? = null,
     val message: String? = null
+)
+
+
+/**
+ * One entry of the public provider catalog (GET /integrations on the web backend, no login needed).
+ * Only providers SocioBird currently offers are listed: "coming soon" ones are filtered server-side.
+ * `customFields` is non-empty for providers that need typed-in credentials (WordPress, Medium, ...),
+ * which cannot be connected from a phone with a single browser hop.
+ */
+@Serializable
+data class ProviderDto(
+    val identifier: String,
+    val name: String = "",
+    val isExternal: Boolean = false,
+    val isWeb3: Boolean = false,
+    val customFields: JsonElement? = null
+) {
+    val needsCredentials: Boolean get() = (customFields as? JsonArray)?.isNotEmpty() == true
+
+    /** Can be connected from the app with the OAuth hop in the browser. */
+    val connectableOnPhone: Boolean get() = !isExternal && !isWeb3 && !needsCredentials
+}
+
+@Serializable
+data class ProvidersResponseDto(
+    val social: List<ProviderDto> = emptyList()
 )

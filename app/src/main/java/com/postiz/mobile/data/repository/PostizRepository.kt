@@ -13,6 +13,7 @@ import com.postiz.mobile.data.remote.dto.IntegrationDto
 import com.postiz.mobile.data.remote.dto.IntegrationSettingsOutputDto
 import com.postiz.mobile.data.remote.dto.MultipartFileDto
 import com.postiz.mobile.data.remote.dto.PostDto
+import com.postiz.mobile.data.remote.dto.ProviderDto
 import com.postiz.mobile.data.remote.dto.SignPartRequestDto
 import com.postiz.mobile.data.remote.dto.UploadFromUrlRequestDto
 import com.postiz.mobile.data.remote.dto.UploadResponseDto
@@ -50,6 +51,10 @@ class PostizRepository @Inject constructor(
 
     suspend fun getIntegrations(): Resource<List<IntegrationDto>> = safeCall {
         apiProvider.getService().getIntegrations()
+    }
+
+    suspend fun getProviderCatalog(): Resource<List<ProviderDto>> = safeCall {
+        apiProvider.getService().getProviderCatalog().social
     }
 
     suspend fun deleteIntegration(id: String): Resource<Unit> = safeCall {

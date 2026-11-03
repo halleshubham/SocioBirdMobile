@@ -12,22 +12,28 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,96 +41,140 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
-import coil.compose.AsyncImage
 import com.postiz.mobile.data.remote.dto.IntegrationDto
-import com.postiz.mobile.ui.components.EmptyState
-import com.postiz.mobile.ui.components.FullScreenError
-import com.postiz.mobile.ui.components.FullScreenLoading
+import com.postiz.mobile.ui.components.PlatformAvatar
+import com.postiz.mobile.ui.components.SbCard
+import com.postiz.mobile.ui.components.SbEmptyState
+import com.postiz.mobile.ui.components.Shimmer
+import com.postiz.mobile.ui.components.providerDisplayName
 import com.postiz.mobile.util.Resource
 
+/** Connected channels as cards, grouped by brand, with status and a menu (analytics, disconnect). */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IntegrationsScreen(
-    onBack: () -> Unit,
     onAddChannel: () -> Unit,
     onChannelTap: (String) -> Unit,
     viewModel: IntegrationsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
     val disconnectError by viewModel.disconnectError.collectAsState()
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val accent = MaterialTheme.colorScheme.primary
     var confirmDisconnect by remember { mutableStateOf<IntegrationDto?>(null) }
 
-    // Connecting a channel happens in the browser, on the Add Channel screen
-    // underneath this one on the back stack -- this ViewModel instance isn't
-    // recreated when we navigate there and back, so refresh explicitly every
-    // time this screen becomes visible again (covers both "back from Add
-    // Channel" and "resumed after the OAuth browser tab closes").
+    // Connecting a channel happens in the browser (Add channel sits above this screen on the back stack), and this
+    // ViewModel survives that round trip, so refresh every time the screen becomes visible again.
     LifecycleResumeEffect(Unit) {
         viewModel.load()
         onPauseOrDispose { }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    val pull = rememberPullToRefreshState()
+    if (pull.isRefreshing) {
+        LaunchedEffect(true) {
+            viewModel.load().join()
+            pull.endRefresh()
+        }
+    }
 
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Spacer(Modifier.width(1.dp)) // header actions stay on the right
-            Row {
-                Text(
-                    "↻ Refresh",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = muted,
-                    modifier = Modifier.clickable(onClick = viewModel::load)
-                )
-                Spacer(Modifier.width(16.dp))
-                Text(
-                    "+ Add",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = accent,
-                    modifier = Modifier.clickable(onClick = onAddChannel)
-                )
+            Column {
+                Text("Channels", style = MaterialTheme.typography.headlineMedium)
+                val count = (state as? Resource.Success)?.data?.size
+                if (count != null) {
+                    Text(
+                        if (count == 1) "1 connected" else "$count connected",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-        }
-
-        Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 10.dp)) {
-            Text("CHANNELS", style = MaterialTheme.typography.labelLarge, color = accent)
-            Text("Connected", style = MaterialTheme.typography.titleLarge)
-            val count = (state as? Resource.Success)?.data?.size ?: 0
-            Text(
-                if (count == 1) "1 channel" else "$count channels",
-                style = MaterialTheme.typography.bodyMedium,
-                color = muted
-            )
+            FilledTonalButton(onClick = onAddChannel) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.height(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Add channel")
+            }
         }
 
         Spacer(Modifier.height(8.dp))
 
-        Box(modifier = Modifier.weight(1f).padding(horizontal = 24.dp)) {
+        Box(modifier = Modifier.weight(1f).clipToBounds().nestedScroll(pull.nestedScrollConnection)) {
             when (val s = state) {
-                is Resource.Loading -> FullScreenLoading()
-                is Resource.Error -> FullScreenError(s.message, onRetry = viewModel::load)
-                is Resource.Success -> {
-                    if (s.data.isEmpty()) {
-                        EmptyState("No channels connected yet. Tap + Add to connect one.")
-                    } else {
-                        LazyColumn(contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)) {
-                            items(s.data, key = { it.id }) { integration ->
-                                IntegrationRow(
-                                    integration = integration,
-                                    onTap = { onChannelTap(integration.id) },
-                                    onDisconnect = { confirmDisconnect = integration }
-                                )
+                is Resource.Loading -> Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    repeat(4) { Shimmer(Modifier.fillMaxWidth().height(76.dp)) }
+                }
+                is Resource.Error -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp)) {
+                    item {
+                        SbCard(container = MaterialTheme.colorScheme.errorContainer) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text("Couldn't load your channels", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                                Text(s.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                                TextButton(onClick = { viewModel.load() }) { Text("Try again") }
                             }
                         }
                     }
                 }
+                is Resource.Success -> {
+                    if (s.data.isEmpty()) {
+                        LazyColumn(Modifier.fillMaxSize()) {
+                            item {
+                                SbEmptyState(
+                                    icon = Icons.Default.Hub,
+                                    title = "No channels yet",
+                                    message = "Connect your first channel to start scheduling posts.",
+                                    modifier = Modifier.padding(top = 48.dp),
+                                    actionLabel = "Add channel",
+                                    onAction = onAddChannel
+                                )
+                            }
+                        }
+                    } else {
+                        val groups = s.data.groupBy { it.customer?.name }
+                        val showHeaders = groups.keys.any { it != null }
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            groups.entries
+                                .sortedWith(compareBy({ it.key == null }, { it.key?.lowercase() }))
+                                .forEach { (brand, channels) ->
+                                    if (showHeaders) {
+                                        item(key = "header-${brand ?: "none"}") {
+                                            Text(
+                                                brand ?: "No brand",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.padding(top = 10.dp)
+                                            )
+                                        }
+                                    }
+                                    items(channels, key = { it.id }) { channel ->
+                                        ChannelCard(
+                                            channel = channel,
+                                            onTap = { onChannelTap(channel.id) },
+                                            onDisconnect = { confirmDisconnect = channel }
+                                        )
+                                    }
+                                }
+                        }
+                    }
+                }
+            }
+            if (pull.progress > 0f || pull.isRefreshing) {
+                PullToRefreshContainer(state = pull, modifier = Modifier.align(Alignment.TopCenter))
             }
         }
     }
@@ -138,7 +188,7 @@ fun IntegrationsScreen(
                 TextButton(onClick = {
                     viewModel.disconnect(target.id)
                     confirmDisconnect = null
-                }) { Text("Disconnect") }
+                }) { Text("Disconnect", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
                 TextButton(onClick = { confirmDisconnect = null }) { Text("Cancel") }
@@ -149,7 +199,7 @@ fun IntegrationsScreen(
     disconnectError?.let { message ->
         AlertDialog(
             onDismissRequest = viewModel::dismissDisconnectError,
-            title = { Text("Couldn't disconnect") },
+            title = { Text("Something went wrong") },
             text = { Text(message) },
             confirmButton = {
                 TextButton(onClick = viewModel::dismissDisconnectError) { Text("OK") }
@@ -159,63 +209,63 @@ fun IntegrationsScreen(
 }
 
 @Composable
-private fun IntegrationRow(
-    integration: IntegrationDto,
-    onTap: () -> Unit,
-    onDisconnect: () -> Unit
-) {
-    val ink = MaterialTheme.colorScheme.onBackground
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val accent = MaterialTheme.colorScheme.primary
-    val hairline = MaterialTheme.colorScheme.outlineVariant
-
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onTap).padding(vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (integration.picture != null) {
-            AsyncImage(
-                model = integration.picture,
-                contentDescription = integration.name,
-                modifier = Modifier.size(42.dp).clip(CircleShape)
+private fun ChannelCard(channel: IntegrationDto, onTap: () -> Unit, onDisconnect: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    var menuOpen by remember { mutableStateOf(false) }
+    SbCard(modifier = Modifier.fillMaxWidth(), onClick = onTap) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            PlatformAvatar(
+                picture = channel.picture,
+                name = channel.name,
+                identifier = channel.identifier,
+                size = 48.dp,
+                modifier = Modifier.alpha(if (channel.disabled) 0.5f else 1f)
             )
-        } else {
-            Surface(
-                modifier = Modifier.size(42.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    Text(
-                        integration.name.take(2).uppercase(),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = ink
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    channel.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (channel.disabled) scheme.onSurfaceVariant else scheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    providerDisplayName(channel.identifier),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant
+                )
+            }
+            ChannelStatus(disabled = channel.disabled)
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "More for ${channel.name}", tint = scheme.onSurfaceVariant)
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(text = { Text("View analytics") }, onClick = { menuOpen = false; onTap() })
+                    DropdownMenuItem(
+                        text = { Text("Disconnect", color = scheme.error) },
+                        onClick = { menuOpen = false; onDisconnect() }
                     )
                 }
             }
         }
-
-        Spacer(Modifier.width(14.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                integration.name,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (integration.disabled) muted else ink
-            )
-            val meta = integration.identifier.uppercase() +
-                (integration.customer?.let { " · ${it.name.uppercase()}" } ?: "")
-            Text(meta, style = MaterialTheme.typography.labelLarge, color = muted)
-        }
-
-        Text(
-            text = if (integration.disabled) "Disabled" else "Active",
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (integration.disabled) muted.copy(alpha = 0.7f) else accent
-        )
-        IconButton(onClick = onDisconnect) {
-            Icon(Icons.Default.Close, contentDescription = "Disconnect ${integration.name}", tint = muted)
-        }
     }
-    HorizontalDivider(color = hairline, thickness = 1.dp)
+}
+
+@Composable
+private fun ChannelStatus(disabled: Boolean) {
+    val scheme = MaterialTheme.colorScheme
+    Text(
+        text = if (disabled) "Disabled" else "Active",
+        style = MaterialTheme.typography.labelMedium,
+        color = if (disabled) scheme.onSurfaceVariant else scheme.onTertiaryContainer,
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(if (disabled) scheme.surfaceContainerHigh else scheme.tertiaryContainer)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    )
 }

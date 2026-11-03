@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** The ranges the analytics screens offer, in days. */
+val AnalyticsRanges = listOf(7, 30, 90)
+
 @HiltViewModel
 class ChannelAnalyticsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -24,14 +27,23 @@ class ChannelAnalyticsViewModel @Inject constructor(
     private val _state = MutableStateFlow<Resource<List<AnalyticsDataDto>>>(Resource.Loading)
     val state: StateFlow<Resource<List<AnalyticsDataDto>>> = _state.asStateFlow()
 
+    private val _days = MutableStateFlow(7)
+    val days: StateFlow<Int> = _days.asStateFlow()
+
     init {
+        load()
+    }
+
+    fun setDays(days: Int) {
+        if (_days.value == days) return
+        _days.value = days
         load()
     }
 
     fun load() {
         viewModelScope.launch {
             _state.value = Resource.Loading
-            _state.value = repository.getChannelAnalytics(integrationId)
+            _state.value = repository.getChannelAnalytics(integrationId, _days.value)
         }
     }
 }
@@ -47,14 +59,23 @@ class PostAnalyticsViewModel @Inject constructor(
     private val _state = MutableStateFlow<Resource<List<AnalyticsDataDto>>>(Resource.Loading)
     val state: StateFlow<Resource<List<AnalyticsDataDto>>> = _state.asStateFlow()
 
+    private val _days = MutableStateFlow(7)
+    val days: StateFlow<Int> = _days.asStateFlow()
+
     init {
+        load()
+    }
+
+    fun setDays(days: Int) {
+        if (_days.value == days) return
+        _days.value = days
         load()
     }
 
     fun load() {
         viewModelScope.launch {
             _state.value = Resource.Loading
-            _state.value = repository.getPostAnalytics(postId)
+            _state.value = repository.getPostAnalytics(postId, _days.value)
         }
     }
 }

@@ -16,8 +16,8 @@ android {
         applicationId = "com.shackyapps.sociobird"
         minSdk = 26
         targetSdk = 36
-        // CI can override these (-PversionCode=13 -PversionName=1.0.1)
-        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 13
+        // CI can override these (-PversionCode=14 -PversionName=1.0.1)
+        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 14
         versionName = (findProperty("versionName") as String?) ?: "1.0.0"
         vectorDrawables { useSupportLibrary = true }
     }

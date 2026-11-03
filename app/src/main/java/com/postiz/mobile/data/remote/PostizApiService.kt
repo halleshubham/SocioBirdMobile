@@ -14,6 +14,7 @@ import com.postiz.mobile.data.remote.dto.FindSlotResponseDto
 import com.postiz.mobile.data.remote.dto.GetPostsResponseDto
 import com.postiz.mobile.data.remote.dto.IntegrationDto
 import com.postiz.mobile.data.remote.dto.IntegrationSettingsResponseDto
+import com.postiz.mobile.data.remote.dto.ProvidersResponseDto
 import com.postiz.mobile.data.remote.dto.SignPartRequestDto
 import com.postiz.mobile.data.remote.dto.SignPartResponseDto
 import com.postiz.mobile.data.remote.dto.SocialConnectResponseDto
@@ -43,6 +44,13 @@ interface PostizApiService {
 
     @GET("is-connected")
     suspend fun checkConnection(): ConnectionStatusDto
+
+    /**
+     * The supported-provider catalog lives outside the public API (`/api/integrations`, no auth), one level up from
+     * `/api/public/v1/`, hence the relative path. Servers without it answer 404 and the app falls back to a short list.
+     */
+    @GET("../../integrations")
+    suspend fun getProviderCatalog(): ProvidersResponseDto
 
     @GET("integrations")
     suspend fun getIntegrations(
