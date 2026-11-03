@@ -16,8 +16,9 @@ android {
         applicationId = "com.shackyapps.sociobird"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.0.0"
+        // CI can override these (-PversionCode=5 -PversionName=1.0.1)
+        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 4
+        versionName = (findProperty("versionName") as String?) ?: "1.0.0"
         vectorDrawables { useSupportLibrary = true }
         // The app is hard-linked to SocioBird: no server URL is ever typed in.
         buildConfigField("String", "SERVER_URL", "\"go.sociobird.app\"")
