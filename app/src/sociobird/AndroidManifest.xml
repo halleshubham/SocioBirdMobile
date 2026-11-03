@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <!-- Google sign-in lands here: the backend's /auth/oauth-mobile-callback redirects to
+             com.shackyapps.sociobird://auth/callback?code=...&state=... (MOBILE_APP_SCHEME on the server). -->
+        <activity
+            android:name="com.postiz.mobile.MainActivity"
+            android:launchMode="singleTask"
+            tools:node="merge">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.shackyapps.sociobird" android:host="auth" android:path="/callback" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

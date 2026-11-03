@@ -15,8 +15,17 @@ The `edition` flavor dimension has two flavors. Always pick one explicitly.
 How the `sociobird` sign-in works: `POST /api/auth/login` (`provider: LOCAL`) returns the session JWT
 (`auth` header or `Set-Cookie`), then `GET /api/user/self` returns `publicApi`, the organisation's API key
 (org admins only). The key is stored and used for the public API. Accounts created with Google have no
-password, so `LoginScreen` also offers "Signed up with Google? Use your API key instead", which opens the
-API-key screen (`ConnectScreen`, server locked, `PostizNavGraph` toggles between the two).
+password, so `LoginScreen` also offers **Continue with Google** and, as a last resort, "Prefer an API key? Use it instead"
+(`ConnectScreen`, server locked, `PostizNavGraph` toggles between the two).
+
+Google sign-in (no Google client id lives in the app): the app calls `GET /api/auth/oauth/GOOGLE?redirect_uri=https://go.sociobird.app/api/auth/oauth-mobile-callback`,
+opens the returned URL in a Chrome Custom Tab, Google redirects to that backend callback, which 302s to
+`com.shackyapps.sociobird://auth/callback?code=..&state=..` (needs `MOBILE_APP_SCHEME=com.shackyapps.sociobird://auth/callback`
+on the production backend, and the callback URL as an authorised redirect URI on the Google **Web** OAuth client
+the backend uses as `YOUTUBE_CLIENT_ID`). `MainActivity` hands the deep link to `OAuthCallbackBus`, `LoginViewModel` posts
+`{code, redirect_uri, state}` to `/api/auth/oauth/GOOGLE/exists` (existing accounts only; a new Google user is told to
+register on the web) and then reads the org API key exactly like the email sign-in. The deep-link intent filter lives in
+`app/src/sociobird/AndroidManifest.xml`.
 
 The Google Play app is ALWAYS the `sociobird` flavor. Never upload a `generic` build to Play.
 
@@ -43,7 +52,7 @@ CI (`.github/workflows`):
 - `targetSdk`/`compileSdk` 36. Google requires new apps and updates to target API 36 (since 2026-08-31),
   so never lower it. That needs AGP 8.9.1 and Gradle 8.11.1 (already set).
 - `versionCode` must be higher than the last upload to Play. The default is in `app/build.gradle.kts`
-  (`?: 7`); bump it for every release, or pass `-PversionCode=N -PversionName=x.y.z`.
+  (`?: 9`); bump it for every release, or pass `-PversionCode=N -PversionName=x.y.z`.
 - Signing: upload key from `keystore.properties` at the repo root (git-ignored) with
   `storeFile`, `storePassword`, `keyAlias`, `keyPassword`. Without it the release build is unsigned. The keystore
   (`sociobird-upload.jks`, alias `sociobird-upload`) is held by the owner, never committed. Play App Signing is on.
