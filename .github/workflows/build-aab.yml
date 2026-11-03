@@ -1,6 +1,7 @@
 name: Build signed AAB (Google Play)
 
-# Builds the release bundle that is uploaded to Google Play. It is signed with
+# Builds the *sociobird* flavor release bundle (com.shackyapps.sociobird) that is uploaded
+# to Google Play. See CLAUDE.md for the product flavors. It is signed with
 # the Play *upload* key, which lives in GitHub secrets (never in the repo):
 #   ANDROID_KEYSTORE_BASE64  base64 of sociobird-upload.jks   (base64 -w0 file.jks)
 #   KEYSTORE_PASSWORD        keystore password
@@ -64,16 +65,16 @@ jobs:
           ARGS=""
           if [ -n "${{ inputs.version_code }}" ]; then ARGS="$ARGS -PversionCode=${{ inputs.version_code }}"; fi
           if [ -n "${{ inputs.version_name }}" ]; then ARGS="$ARGS -PversionName=${{ inputs.version_name }}"; fi
-          ./gradlew bundleRelease $ARGS
+          ./gradlew bundleSociobirdRelease $ARGS
 
       - name: Verify the bundle is signed with the upload key
-        run: jarsigner -verify app/build/outputs/bundle/release/app-release.aab
+        run: jarsigner -verify app/build/outputs/bundle/sociobirdRelease/app-sociobird-release.aab
 
       - name: Upload the bundle
         uses: actions/upload-artifact@v4
         with:
           name: sociobird-release-aab
-          path: app/build/outputs/bundle/release/app-release.aab
+          path: app/build/outputs/bundle/sociobirdRelease/app-sociobird-release.aab
           if-no-files-found: error
 
       - name: Remove the keystore from the runner

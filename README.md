@@ -1,5 +1,8 @@
 # SocioBirdMobile
 
+> **Building?** The app has two product flavors, `sociobird` (the Google Play app, email/password sign-in, locked to
+> go.sociobird.app) and `generic` (bring your own server). See [CLAUDE.md](CLAUDE.md) before building or releasing.
+
 A "bring your own instance" Android client for **SocioBird** (built on
 **Postiz**, the open-source social-media scheduler, and specifically the
 [`halleshubham/shacky-postiz`](https://github.com/halleshubham/shacky-postiz)
