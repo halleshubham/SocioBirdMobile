@@ -43,12 +43,23 @@ CI (`.github/workflows`):
 - `targetSdk`/`compileSdk` 36. Google requires new apps and updates to target API 36 (since 2026-08-31),
   so never lower it. That needs AGP 8.9.1 and Gradle 8.11.1 (already set).
 - `versionCode` must be higher than the last upload to Play. The default is in `app/build.gradle.kts`
-  (`?: 6`); bump it for every release, or pass `-PversionCode=N -PversionName=x.y.z`.
+  (`?: 7`); bump it for every release, or pass `-PversionCode=N -PversionName=x.y.z`.
 - Signing: upload key from `keystore.properties` at the repo root (git-ignored) with
   `storeFile`, `storePassword`, `keyAlias`, `keyPassword`. Without it the release build is unsigned. The keystore
   (`sociobird-upload.jks`, alias `sociobird-upload`) is held by the owner, never committed. Play App Signing is on.
 - Check a build: `jarsigner -verify <aab>` and `keytool -printcert -jarfile <aab>`.
 - Store listing text and graphics are not in this repo.
+
+## Play Console upload warnings (expected, read before worrying)
+
+- **"No deobfuscation file"**: fixed. Release builds run R8 (`isMinifyEnabled`/`isShrinkResources`), and AGP puts
+  `mapping.txt` inside the AAB (`BUNDLE-METADATA/.../proguard.map`), so nothing has to be uploaded by hand. If this warning comes
+  back, R8 was turned off or the build was not a release build. R8 rules live in `app/proguard-rules.pro`; after changing
+  dependencies, test the release build on a device (sign in, post list, create/schedule, upload) because R8 problems only show at runtime.
+- **"Native code but no debug symbols"**: harmless, cannot be fixed from this repo. The only native library is
+  AndroidX DataStore's `libdatastore_shared_counter.so` (a few KB, already stripped by AndroidX), so there are no symbols to
+  extract; `ndk { debugSymbolLevel = ... }` produces nothing for it. Ignore the warning unless the app adds its own native code,
+  in which case set `debugSymbolLevel = "SYMBOL_TABLE"` (or `"FULL"`) and install the NDK in the build environment.
 
 ## Building inside a cloud Claude Code session
 
