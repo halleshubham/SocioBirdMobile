@@ -37,7 +37,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 
 /** Email/password sign-in for the go.sociobird.app edition (mirrors the web app's login page). */
 @Composable
-fun LoginScreen(viewModel: LoginViewModel = hiltViewModel()) {
+fun LoginScreen(onUseApiKey: () -> Unit = {}, viewModel: LoginViewModel = hiltViewModel()) {
     val state = viewModel.uiState
     val context = LocalContext.current
     val ink = MaterialTheme.colorScheme.onBackground
@@ -113,6 +113,12 @@ fun LoginScreen(viewModel: LoginViewModel = hiltViewModel()) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = accent,
                 modifier = Modifier.padding(top = 14.dp).clickable { openWeb("/auth/forgot") }.padding(vertical = 6.dp)
+            )
+            Text(
+                "Signed up with Google? Use your API key instead",
+                style = MaterialTheme.typography.bodyMedium,
+                color = accent,
+                modifier = Modifier.clickable(onClick = onUseApiKey).padding(vertical = 6.dp)
             )
         }
 

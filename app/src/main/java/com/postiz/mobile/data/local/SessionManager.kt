@@ -5,7 +5,6 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.postiz.mobile.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -16,9 +15,8 @@ import javax.inject.Singleton
 private val Context.dataStore by preferencesDataStore(name = "postiz_session")
 
 /**
- * What the app uses to talk to SocioBird:
- *  - serverUrl: always BuildConfig.SERVER_URL (go.sociobird.app); the app is
- *               hard-linked to SocioBird and no longer lets the user change it.
+ * What the self-hoster typed in on the Connect screen:
+ *  - serverUrl: their domain/IP (e.g. "postiz.mycompany.com" or "192.168.1.20:5000")
  *  - apiToken:  raw API key from Postiz Settings -> Developer, OR an OAuth2
  *               token (which the Postiz API expects prefixed with "pos_").
  *               Either one is sent verbatim in the Authorization header.
@@ -30,7 +28,7 @@ data class Session(
     val apiToken: String = "",
     val isCloud: Boolean = false
 ) {
-    val isValid: Boolean get() = apiToken.isNotBlank()
+    val isValid: Boolean get() = serverUrl.isNotBlank() && apiToken.isNotBlank()
 }
 
 @Singleton
@@ -45,17 +43,19 @@ class SessionManager @Inject constructor(
 
     val sessionFlow: Flow<Session> = context.dataStore.data.map { prefs ->
         Session(
-            serverUrl = BuildConfig.SERVER_URL,
+            serverUrl = prefs[Keys.SERVER_URL].orEmpty(),
             apiToken = prefs[Keys.API_TOKEN].orEmpty(),
-            isCloud = false
+            isCloud = prefs[Keys.IS_CLOUD] ?: false
         )
     }
 
     suspend fun currentSession(): Session = sessionFlow.first()
 
-    suspend fun saveSession(apiToken: String) {
+    suspend fun saveSession(serverUrl: String, apiToken: String, isCloud: Boolean) {
         context.dataStore.edit { prefs ->
+            prefs[Keys.SERVER_URL] = serverUrl.trim()
             prefs[Keys.API_TOKEN] = apiToken.trim()
+            prefs[Keys.IS_CLOUD] = isCloud
         }
     }
 

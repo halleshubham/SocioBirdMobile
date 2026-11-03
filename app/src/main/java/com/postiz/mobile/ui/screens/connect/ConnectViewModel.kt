@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.postiz.mobile.BuildConfig
 import com.postiz.mobile.data.local.SessionManager
 import com.postiz.mobile.data.remote.PostizApiProvider
 import com.postiz.mobile.data.repository.PostizRepository
@@ -14,7 +15,9 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ConnectUiState(
+    val serverUrl: String = "",
     val apiToken: String = "",
+    val isCloud: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -26,11 +29,24 @@ class ConnectViewModel @Inject constructor(
     private val repository: PostizRepository
 ) : ViewModel() {
 
-    var uiState by mutableStateOf(ConnectUiState())
+    /** True in the sociobird flavor: the server is fixed, only the API key is asked for. */
+    val serverLocked: Boolean = BuildConfig.LOCKED_SERVER_URL.isNotEmpty()
+
+    var uiState by mutableStateOf(
+        ConnectUiState(serverUrl = BuildConfig.LOCKED_SERVER_URL.removePrefix("https://"))
+    )
         private set
+
+    fun onServerUrlChange(value: String) {
+        uiState = uiState.copy(serverUrl = value, error = null)
+    }
 
     fun onTokenChange(value: String) {
         uiState = uiState.copy(apiToken = value, error = null)
+    }
+
+    fun onCloudToggle(value: Boolean) {
+        uiState = uiState.copy(isCloud = value)
     }
 
     /**
@@ -41,16 +57,17 @@ class ConnectViewModel @Inject constructor(
      * no explicit navigation call needed from here.
      */
     fun connect() {
+        val url = uiState.serverUrl.trim()
         val token = uiState.apiToken.trim()
 
-        if (token.isBlank()) {
-            uiState = uiState.copy(error = "Enter your SocioBird API key")
+        if (url.isBlank() || token.isBlank()) {
+            uiState = uiState.copy(error = if (serverLocked) "Enter your API key" else "Enter both the server URL and your API key")
             return
         }
 
         viewModelScope.launch {
             uiState = uiState.copy(isLoading = true, error = null)
-            sessionManager.saveSession(token)
+            sessionManager.saveSession(url, token, uiState.isCloud)
             apiProvider.invalidate()
 
             when (val result = repository.checkConnection()) {
@@ -59,7 +76,7 @@ class ConnectViewModel @Inject constructor(
                         uiState = uiState.copy(isLoading = false)
                     } else {
                         sessionManager.clearSession()
-                        uiState = uiState.copy(isLoading = false, error = "SocioBird rejected this API key")
+                        uiState = uiState.copy(isLoading = false, error = "Server reached, but the key was rejected")
                     }
                 }
                 is Resource.Error -> {

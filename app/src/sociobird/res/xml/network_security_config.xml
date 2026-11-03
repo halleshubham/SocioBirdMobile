@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  sociobird flavor (the Google Play app): only talks to go.sociobird.app over
+  HTTPS, so cleartext is not permitted. The generic flavor keeps the permissive
+  config in src/main for self-hosted instances reached over plain HTTP.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -19,8 +19,6 @@ android {
         versionCode = 4
         versionName = "1.0.0"
         vectorDrawables { useSupportLibrary = true }
-        // The app is hard-linked to SocioBird: no server URL is ever typed in.
-        buildConfigField("String", "SERVER_URL", "\"go.sociobird.app\"")
     }
 
     // Upload key for Google Play. keystore.properties is git-ignored and lives
@@ -45,14 +43,15 @@ android {
         // Original "bring your own instance" app: user types Server URL + API key.
         create("generic") {
             dimension = "edition"
+            applicationIdSuffix = ".byo"
+            versionNameSuffix = "-byo"
             buildConfigField("String", "LOCKED_SERVER_URL", "\"\"")
         }
         // go.sociobird.app edition: server baked in, web-app style email/password
         // login, the org API key is fetched automatically after signing in.
         create("sociobird") {
             dimension = "edition"
-            applicationIdSuffix = ".sociobird"
-            versionNameSuffix = "-sociobird"
+            // This is the Google Play app: applicationId stays com.shackyapps.sociobird.
             buildConfigField("String", "LOCKED_SERVER_URL", "\"https://go.sociobird.app\"")
         }
     }
