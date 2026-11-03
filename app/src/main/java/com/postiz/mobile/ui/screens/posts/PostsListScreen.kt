@@ -64,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -157,7 +158,8 @@ fun PostsListScreen(
                 onBrand = viewModel::selectBrand
             )
 
-            Box(modifier = Modifier.weight(1f).nestedScroll(pull.nestedScrollConnection)) {
+            // clipToBounds: the refresh spinner rests just above this box and must stay hidden until the user pulls.
+            Box(modifier = Modifier.weight(1f).clipToBounds().nestedScroll(pull.nestedScrollConnection)) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp),
@@ -204,7 +206,9 @@ fun PostsListScreen(
                         }
                     }
                 }
-                PullToRefreshContainer(state = pull, modifier = Modifier.align(Alignment.TopCenter))
+                if (pull.progress > 0f || pull.isRefreshing) {
+                    PullToRefreshContainer(state = pull, modifier = Modifier.align(Alignment.TopCenter))
+                }
             }
         }
 
