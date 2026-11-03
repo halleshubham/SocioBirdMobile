@@ -16,9 +16,11 @@ android {
         applicationId = "com.shackyapps.sociobird"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
+        versionCode = 4
         versionName = "1.0.0"
         vectorDrawables { useSupportLibrary = true }
+        // The app is hard-linked to SocioBird: no server URL is ever typed in.
+        buildConfigField("String", "SERVER_URL", "\"go.sociobird.app\"")
     }
 
     // Upload key for Google Play. keystore.properties is git-ignored and lives
