@@ -15,3 +15,6 @@ local.properties
 keystore.properties
 *.jks
 *.keystore
+
+# Module build output
+/app/build/
