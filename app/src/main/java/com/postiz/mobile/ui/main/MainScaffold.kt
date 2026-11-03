@@ -1,21 +1,33 @@
 package com.postiz.mobile.ui.main
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Hub
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -26,6 +38,7 @@ import androidx.navigation.compose.rememberNavController
 import com.postiz.mobile.ui.navigation.Screen
 import com.postiz.mobile.ui.screens.analytics.ChannelAnalyticsScreen
 import com.postiz.mobile.ui.screens.analytics.PostAnalyticsScreen
+import com.postiz.mobile.ui.screens.home.HomeScreen
 import com.postiz.mobile.ui.screens.integrations.AddChannelScreen
 import com.postiz.mobile.ui.screens.integrations.IntegrationsScreen
 import com.postiz.mobile.ui.screens.posts.CreatePostScreen
@@ -39,7 +52,7 @@ private fun NavController.navigateSingleTopTo(route: String) =
         restoreState = true
     }
 
-/** Full-screen detail routes reached via a drill-in, not a footer tab -- no footer on these. */
+/** Full-screen detail routes reached via a drill-in, not a tab: no bottom bar on these. */
 private fun String?.isDetailRoute(): Boolean =
     this == Screen.CreatePost.route ||
         this == Screen.AddChannel.route ||
@@ -53,22 +66,39 @@ fun MainScaffold() {
     val currentRoute = backStackEntry?.destination?.route
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             if (!currentRoute.isDetailRoute()) {
-                EditorialFooterNav(
+                AppNavigationBar(
                     currentRoute = currentRoute,
+                    onHome = { navController.navigateSingleTopTo(Screen.Home.route) },
+                    onCalendar = { navController.navigateSingleTopTo(Screen.Posts.route) },
+                    onCreate = { navController.navigate(Screen.CreatePost.route) },
                     onChannels = { navController.navigateSingleTopTo(Screen.Integrations.route) },
-                    onWrite = { navController.navigate(Screen.CreatePost.route) },
-                    onSettings = { navController.navigateSingleTopTo(Screen.Settings.route) }
+                    onMore = { navController.navigateSingleTopTo(Screen.Settings.route) }
                 )
             }
         }
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Posts.route,
-            modifier = Modifier.padding(padding)
+            startDestination = Screen.Home.route,
+            // Edge-to-edge: keep content below the status bar / camera cutout (screens add no hard-coded top gap).
+            modifier = Modifier.padding(padding).statusBarsPadding()
         ) {
+            composable(Screen.Home.route) {
+                HomeScreen(
+                    onCreatePost = { navController.navigate(Screen.CreatePost.route) },
+                    onOpenCalendar = { navController.navigateSingleTopTo(Screen.Posts.route) },
+                    onOpenChannels = { navController.navigateSingleTopTo(Screen.Integrations.route) },
+                    onAddChannel = { navController.navigate(Screen.AddChannel.route) },
+                    onPostTap = { post ->
+                        // Published posts have analytics; anything else is managed in the calendar.
+                        if (post.state == "PUBLISHED") navController.navigate(Screen.PostAnalytics.route(post.id))
+                        else navController.navigateSingleTopTo(Screen.Posts.route)
+                    }
+                )
+            }
             composable(Screen.Posts.route) {
                 PostsListScreen(
                     onCreatePost = { navController.navigate(Screen.CreatePost.route) },
@@ -80,13 +110,13 @@ fun MainScaffold() {
             }
             composable(Screen.Integrations.route) {
                 IntegrationsScreen(
-                    onBack = { navController.navigateSingleTopTo(Screen.Posts.route) },
+                    onBack = { navController.navigateSingleTopTo(Screen.Home.route) },
                     onAddChannel = { navController.navigate(Screen.AddChannel.route) },
                     onChannelTap = { id -> navController.navigate(Screen.ChannelAnalytics.route(id)) }
                 )
             }
             composable(Screen.Settings.route) {
-                SettingsScreen(onBack = { navController.navigateSingleTopTo(Screen.Posts.route) })
+                SettingsScreen(onBack = { navController.navigateSingleTopTo(Screen.Home.route) })
             }
             composable(Screen.AddChannel.route) {
                 AddChannelScreen(onBack = { navController.popBackStack() })
@@ -102,68 +132,49 @@ fun MainScaffold() {
 }
 
 @Composable
-private fun EditorialFooterNav(
+private fun AppNavigationBar(
     currentRoute: String?,
+    onHome: () -> Unit,
+    onCalendar: () -> Unit,
+    onCreate: () -> Unit,
     onChannels: () -> Unit,
-    onWrite: () -> Unit,
-    onSettings: () -> Unit
+    onMore: () -> Unit
 ) {
-    val hairline = MaterialTheme.colorScheme.outline
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
-            .drawBehind {
-                drawLine(hairline, androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(size.width, 0f), strokeWidth = 1.dp.toPx())
-            }
-            // enableEdgeToEdge() draws content behind the system nav bar; without
-            // this the footer (and its taps) end up underneath the nav buttons.
-            .navigationBarsPadding()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        FooterLink("CHANNELS", active = currentRoute == Screen.Integrations.route, onClick = onChannels)
-        WritePill(onClick = onWrite)
-        FooterLink("SETTINGS", active = currentRoute == Screen.Settings.route, onClick = onSettings)
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+        NavItem("Home", Icons.Filled.Home, Icons.Outlined.Home, currentRoute == Screen.Home.route, onHome)
+        NavItem("Calendar", Icons.Filled.CalendarMonth, Icons.Outlined.CalendarMonth, currentRoute == Screen.Posts.route, onCalendar)
+        // Create is an action, not a destination: a filled brand button in the middle of the bar.
+        NavigationBarItem(
+            selected = false,
+            onClick = onCreate,
+            icon = {
+                Box(
+                    modifier = Modifier.size(48.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = "Create a post", tint = MaterialTheme.colorScheme.onPrimary)
+                }
+            },
+            colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.surfaceContainer)
+        )
+        NavItem("Channels", Icons.Filled.Hub, Icons.Outlined.Hub, currentRoute == Screen.Integrations.route, onChannels)
+        NavItem("More", Icons.Filled.Settings, Icons.Outlined.Settings, currentRoute == Screen.Settings.route, onMore)
     }
 }
 
 @Composable
-private fun FooterLink(label: String, active: Boolean, onClick: () -> Unit) {
-    val color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-    Text(
-        text = label,
-        style = MaterialTheme.typography.labelLarge,
-        color = color,
-        modifier = Modifier
-            .clickable(onClick = onClick)
-            .then(
-                if (active) {
-                    Modifier.drawBehind {
-                        val y = size.height + 4.dp.toPx()
-                        drawLine(
-                            color,
-                            androidx.compose.ui.geometry.Offset(0f, y),
-                            androidx.compose.ui.geometry.Offset(size.width, y),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                    }
-                } else Modifier
-            )
-            .padding(bottom = 4.dp)
-    )
-}
-
-@Composable
-private fun WritePill(onClick: () -> Unit) {
-    Text(
-        text = "Write",
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onPrimary,
-        modifier = Modifier
-            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(999.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 28.dp, vertical = 12.dp)
+private fun androidx.compose.foundation.layout.RowScope.NavItem(
+    label: String,
+    selectedIcon: ImageVector,
+    unselectedIcon: ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    NavigationBarItem(
+        selected = selected,
+        onClick = onClick,
+        icon = { Icon(if (selected) selectedIcon else unselectedIcon, contentDescription = null) },
+        label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+        alwaysShowLabel = true
     )
 }

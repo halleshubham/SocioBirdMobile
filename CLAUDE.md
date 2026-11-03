@@ -29,6 +29,27 @@ register on the web) and then reads the org API key exactly like the email sign-
 
 The Google Play app is ALWAYS the `sociobird` flavor. Never upload a `generic` build to Play.
 
+## UI foundation (Material 3 + SocioBird purple)
+
+The app follows a Material 3 design system; read this before touching a screen.
+
+- **Theme** (`ui/theme`): full tonal colour scheme anchored on brand purple `#612AD5` (light) and a lighter step of it (dark),
+  fixed (no Material You dynamic colour), 5-step shape scale (8/12/16/24/32dp), M3 type scale with nothing below 12sp.
+  Use colour *roles* (`MaterialTheme.colorScheme.primaryContainer`, `surfaceContainerLow`, `onSurfaceVariant`, `outlineVariant`...),
+  never hex values in screens. Hairlines are `outlineVariant`. Sentence case labels; `labelLarge` is only the legacy small spaced label.
+- **Shared components** (`ui/components/SbComponents.kt`): `SbCard`, `SectionHeader`, `StatusChip` (post state: DRAFT / QUEUE / PUBLISHED / ERROR),
+  `PlatformAvatar` (profile picture + platform logo badge), `Shimmer` (loading), `SbEmptyState`. Reuse them; add new shared pieces there.
+- **Platform logos**: `res/drawable-nodpi/ic_platform_<provider_id_with_underscores>.png`, mapped in `platformIconRes()`. A new provider needs a PNG
+  and one line in that `when`. Only providers SocioBird actually supports on the web are bundled.
+- **Navigation** (`ui/main/MainScaffold.kt`): M3 `NavigationBar` with Home, Calendar (`Screen.Posts`), a centre Create action, Channels, More (Settings).
+  Start destination is **Home** (`Screen.Home`). Detail routes (create post, add channel, analytics) hide the bar. The scaffold applies
+  `statusBarsPadding`; screens must not add their own status-bar gap, and anything with a text field needs `imePadding()`.
+- **Home** (`ui/screens/home`): built only from `GET /posts` and `GET /integrations` (no backend change): getting-started checklist for new accounts,
+  "Needs attention" (failed posts = state `ERROR` in the last 30 days, disabled channels), up to 3 "Up next" scheduled posts, this-week counts and a
+  7-day strip, quick actions, channel avatars. The 7-day performance snapshot is deliberately not there yet (planned with Insights).
+- **Old screens** (calendar list, composer, channels, add channel, analytics, settings, sign-in) still use the earlier "editorial" layout on the new
+  theme and are being migrated phase by phase (calendar, composer, channels/insights, polish). When you change one, move it to `SbComponents`.
+
 ## Build commands
 
 ```bash
@@ -52,7 +73,7 @@ CI (`.github/workflows`):
 - `targetSdk`/`compileSdk` 36. Google requires new apps and updates to target API 36 (since 2026-08-31),
   so never lower it. That needs AGP 8.9.1 and Gradle 8.11.1 (already set).
 - `versionCode` must be higher than the last upload to Play. The default is in `app/build.gradle.kts`
-  (`?: 9`); bump it for every release, or pass `-PversionCode=N -PversionName=x.y.z`.
+  (`?: 10`); bump it for every release, or pass `-PversionCode=N -PversionName=x.y.z`.
 - Signing: upload key from `keystore.properties` at the repo root (git-ignored) with
   `storeFile`, `storePassword`, `keyAlias`, `keyPassword`. Without it the release build is unsigned. The keystore
   (`sociobird-upload.jks`, alias `sociobird-upload`) is held by the owner, never committed. Play App Signing is on.

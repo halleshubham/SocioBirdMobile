@@ -38,18 +38,11 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     val ink = MaterialTheme.colorScheme.onBackground
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val accent = MaterialTheme.colorScheme.primary
-    val hairline = MaterialTheme.colorScheme.outline
+    val hairline = MaterialTheme.colorScheme.outlineVariant
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
 
-        Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 30.dp)) {
-            Text(
-                "‹ Posts",
-                style = MaterialTheme.typography.bodyMedium,
-                color = muted,
-                modifier = Modifier.clickable(onClick = onBack)
-            )
-            Spacer(Modifier.height(10.dp))
+        Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp)) {
             Text("SETTINGS", style = MaterialTheme.typography.labelLarge, color = accent)
             Text("Your server", style = MaterialTheme.typography.titleLarge)
         }

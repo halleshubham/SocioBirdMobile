@@ -42,7 +42,7 @@ fun ConnectScreen(onBack: (() -> Unit)? = null, viewModel: ConnectViewModel = hi
     val ink = MaterialTheme.colorScheme.onBackground
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val accent = MaterialTheme.colorScheme.primary
-    val hairline = MaterialTheme.colorScheme.outline
+    val hairline = MaterialTheme.colorScheme.outlineVariant
 
     Column(
         modifier = Modifier

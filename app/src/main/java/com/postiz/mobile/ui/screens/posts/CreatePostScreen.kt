@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -74,7 +75,7 @@ fun CreatePostScreen(
     val ink = MaterialTheme.colorScheme.onBackground
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val accent = MaterialTheme.colorScheme.primary
-    val hairline = MaterialTheme.colorScheme.outline
+    val hairline = MaterialTheme.colorScheme.outlineVariant
 
     LaunchedEffect(state.submitted) {
         if (state.submitted) onDone()
@@ -87,10 +88,10 @@ fun CreatePostScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).imePadding()) {
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 26.dp, start = 12.dp, end = 24.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, start = 12.dp, end = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {

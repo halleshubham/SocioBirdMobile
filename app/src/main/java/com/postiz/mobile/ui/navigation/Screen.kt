@@ -1,7 +1,8 @@
 package com.postiz.mobile.ui.navigation
 
 sealed class Screen(val route: String) {
-    data object Posts : Screen("posts")
+    data object Home : Screen("home")
+    data object Posts : Screen("posts") // the calendar
     data object CreatePost : Screen("create_post")
     data object Integrations : Screen("integrations")
     data object Settings : Screen("settings")
