@@ -53,29 +53,16 @@ fun ConnectScreen(viewModel: ConnectViewModel = hiltViewModel()) {
     ) {
         Column(modifier = Modifier.padding(top = 56.dp, start = 28.dp, end = 28.dp)) {
             Text("CONNECT", style = MaterialTheme.typography.labelLarge, color = accent)
-            Text("Your server", style = MaterialTheme.typography.titleLarge)
+            Text("SocioBird", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(6.dp))
             Text(
-                "Self-hosted or Postiz Cloud — either works.",
+                "Connect your SocioBird account with your API key.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = muted
             )
         }
 
         Column(modifier = Modifier.padding(top = 40.dp, start = 28.dp, end = 28.dp)) {
-
-            EditorialField(
-                label = "SERVER URL",
-                value = state.serverUrl,
-                onValueChange = viewModel::onServerUrlChange,
-                placeholder = "postiz.mycompany.com",
-                keyboardType = KeyboardType.Uri,
-                ink = ink,
-                muted = muted,
-                hairline = hairline
-            )
-
-            Spacer(Modifier.height(28.dp))
 
             var showToken by remember { mutableStateOf(false) }
             Column {
@@ -105,16 +92,6 @@ fun ConnectScreen(viewModel: ConnectViewModel = hiltViewModel()) {
                 )
             }
 
-            Spacer(Modifier.height(30.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable { viewModel.onCloudToggle(!state.isCloud) },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("This is Postiz Cloud", style = MaterialTheme.typography.bodyMedium, color = ink)
-                EditorialSwitch(checked = state.isCloud, accent = accent, track = hairline)
-            }
         }
 
         if (state.error != null) {
@@ -129,7 +106,7 @@ fun ConnectScreen(viewModel: ConnectViewModel = hiltViewModel()) {
         Spacer(Modifier.height(28.dp))
 
         Text(
-            "Need an API key? Open your Sociobird web app → Settings → Developer.",
+            "Need an API key? Open go.sociobird.app → Settings → Developer.",
             style = MaterialTheme.typography.bodyMedium,
             color = muted,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp),

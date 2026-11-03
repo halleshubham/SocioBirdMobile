@@ -51,19 +51,19 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
             )
             Spacer(Modifier.height(10.dp))
             Text("SETTINGS", style = MaterialTheme.typography.labelLarge, color = accent)
-            Text("Your server", style = MaterialTheme.typography.titleLarge)
+            Text("Your account", style = MaterialTheme.typography.titleLarge)
         }
 
         Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 34.dp)) {
 
-            SettingsField(label = "CONNECTED SERVER") {
+            SettingsField(label = "CONNECTED TO") {
                 Text(
                     session.serverUrl.ifBlank { "–" },
                     style = MaterialTheme.typography.bodyLarge,
                     color = ink
                 )
                 Text(
-                    if (session.isCloud) "Postiz Cloud" else "Self-hosted",
+                    "SocioBird",
                     style = MaterialTheme.typography.bodyMedium,
                     color = muted
                 )

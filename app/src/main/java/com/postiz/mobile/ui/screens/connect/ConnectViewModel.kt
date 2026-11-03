@@ -14,9 +14,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ConnectUiState(
-    val serverUrl: String = "",
     val apiToken: String = "",
-    val isCloud: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -31,16 +29,8 @@ class ConnectViewModel @Inject constructor(
     var uiState by mutableStateOf(ConnectUiState())
         private set
 
-    fun onServerUrlChange(value: String) {
-        uiState = uiState.copy(serverUrl = value, error = null)
-    }
-
     fun onTokenChange(value: String) {
         uiState = uiState.copy(apiToken = value, error = null)
-    }
-
-    fun onCloudToggle(value: Boolean) {
-        uiState = uiState.copy(isCloud = value)
     }
 
     /**
@@ -51,17 +41,16 @@ class ConnectViewModel @Inject constructor(
      * no explicit navigation call needed from here.
      */
     fun connect() {
-        val url = uiState.serverUrl.trim()
         val token = uiState.apiToken.trim()
 
-        if (url.isBlank() || token.isBlank()) {
-            uiState = uiState.copy(error = "Enter both the server URL and your API key")
+        if (token.isBlank()) {
+            uiState = uiState.copy(error = "Enter your SocioBird API key")
             return
         }
 
         viewModelScope.launch {
             uiState = uiState.copy(isLoading = true, error = null)
-            sessionManager.saveSession(url, token, uiState.isCloud)
+            sessionManager.saveSession(token)
             apiProvider.invalidate()
 
             when (val result = repository.checkConnection()) {
@@ -70,7 +59,7 @@ class ConnectViewModel @Inject constructor(
                         uiState = uiState.copy(isLoading = false)
                     } else {
                         sessionManager.clearSession()
-                        uiState = uiState.copy(isLoading = false, error = "Server reached, but the key was rejected")
+                        uiState = uiState.copy(isLoading = false, error = "SocioBird rejected this API key")
                     }
                 }
                 is Resource.Error -> {

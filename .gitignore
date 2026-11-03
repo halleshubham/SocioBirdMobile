@@ -10,3 +10,11 @@
 *.apk
 *.aab
 local.properties
+
+# Play upload key, never commit
+keystore.properties
+*.jks
+*.keystore
+
+# Module build output
+/app/build/

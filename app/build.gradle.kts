@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -8,19 +10,39 @@ plugins {
 
 android {
     namespace = "com.postiz.mobile"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.postiz.mobile"
+        applicationId = "com.shackyapps.sociobird"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 2
+        targetSdk = 36
+        versionCode = 4
         versionName = "1.0.0"
         vectorDrawables { useSupportLibrary = true }
+        // The app is hard-linked to SocioBird: no server URL is ever typed in.
+        buildConfigField("String", "SERVER_URL", "\"go.sociobird.app\"")
+    }
+
+    // Upload key for Google Play. keystore.properties is git-ignored and lives
+    // next to the keystore; without it the release build is simply unsigned.
+    val keystoreProps = Properties().apply {
+        val f = rootProject.file("keystore.properties")
+        if (f.exists()) f.inputStream().use { load(it) }
+    }
+    signingConfigs {
+        if (keystoreProps.isNotEmpty()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
