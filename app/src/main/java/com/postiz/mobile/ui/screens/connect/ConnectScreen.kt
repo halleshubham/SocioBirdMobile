@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
-fun ConnectScreen(viewModel: ConnectViewModel = hiltViewModel()) {
+fun ConnectScreen(onBack: (() -> Unit)? = null, viewModel: ConnectViewModel = hiltViewModel()) {
     val state = viewModel.uiState
     val ink = MaterialTheme.colorScheme.onBackground
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -52,17 +52,41 @@ fun ConnectScreen(viewModel: ConnectViewModel = hiltViewModel()) {
             .navigationBarsPadding()
     ) {
         Column(modifier = Modifier.padding(top = 56.dp, start = 28.dp, end = 28.dp)) {
+            if (onBack != null) {
+                Text(
+                    "‹ Sign in with email",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = muted,
+                    modifier = Modifier.clickable(onClick = onBack).padding(bottom = 14.dp)
+                )
+            }
             Text("CONNECT", style = MaterialTheme.typography.labelLarge, color = accent)
-            Text("SocioBird", style = MaterialTheme.typography.titleLarge)
+            Text(if (viewModel.serverLocked) "SocioBird API key" else "Your server", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(6.dp))
             Text(
-                "Connect your SocioBird account with your API key.",
+                if (viewModel.serverLocked) "Use the API key from go.sociobird.app → Settings → Developer." else "Self-hosted or Postiz Cloud — either works.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = muted
             )
         }
 
         Column(modifier = Modifier.padding(top = 40.dp, start = 28.dp, end = 28.dp)) {
+
+            if (!viewModel.serverLocked) {
+            EditorialField(
+                label = "SERVER URL",
+                value = state.serverUrl,
+                onValueChange = viewModel::onServerUrlChange,
+                placeholder = "postiz.mycompany.com",
+                keyboardType = KeyboardType.Uri,
+                ink = ink,
+                muted = muted,
+                hairline = hairline
+            )
+
+            Spacer(Modifier.height(28.dp))
+
+            }
 
             var showToken by remember { mutableStateOf(false) }
             Column {
@@ -92,6 +116,18 @@ fun ConnectScreen(viewModel: ConnectViewModel = hiltViewModel()) {
                 )
             }
 
+            if (!viewModel.serverLocked) {
+            Spacer(Modifier.height(30.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { viewModel.onCloudToggle(!state.isCloud) },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("This is Postiz Cloud", style = MaterialTheme.typography.bodyMedium, color = ink)
+                EditorialSwitch(checked = state.isCloud, accent = accent, track = hairline)
+            }
+            }
         }
 
         if (state.error != null) {
@@ -106,7 +142,7 @@ fun ConnectScreen(viewModel: ConnectViewModel = hiltViewModel()) {
         Spacer(Modifier.height(28.dp))
 
         Text(
-            "Need an API key? Open go.sociobird.app → Settings → Developer.",
+            "Need an API key? Open your Sociobird web app → Settings → Developer.",
             style = MaterialTheme.typography.bodyMedium,
             color = muted,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp),
@@ -144,7 +180,7 @@ fun ConnectScreen(viewModel: ConnectViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun EditorialField(
+internal fun EditorialField(
     label: String?,
     value: String,
     onValueChange: (String) -> Unit,
