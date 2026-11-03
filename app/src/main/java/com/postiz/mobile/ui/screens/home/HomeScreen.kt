@@ -110,7 +110,7 @@ fun HomeScreen(
                     item { GettingStartedCard(ui, onAddChannel = onAddChannel, onCreatePost = onCreatePost) }
                 }
                 if (ui.needsAttention) {
-                    item { NeedsAttentionCard(ui, onOpenCalendar = onOpenCalendar, onOpenChannels = onOpenChannels) }
+                    item { NeedsAttentionCard(ui, onReviewFailed = { viewModel.reviewFailed(); onOpenCalendar() }, onOpenChannels = onOpenChannels) }
                 }
                 item {
                     Column {
@@ -260,7 +260,7 @@ private fun ChecklistRow(label: String, done: Boolean, actionLabel: String?, onA
 }
 
 @Composable
-private fun NeedsAttentionCard(ui: HomeUi, onOpenCalendar: () -> Unit, onOpenChannels: () -> Unit) {
+private fun NeedsAttentionCard(ui: HomeUi, onReviewFailed: () -> Unit, onOpenChannels: () -> Unit) {
     SbCard(container = MaterialTheme.colorScheme.errorContainer) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -272,7 +272,7 @@ private fun NeedsAttentionCard(ui: HomeUi, onOpenCalendar: () -> Unit, onOpenCha
                 AttentionRow(
                     text = if (ui.failed.size == 1) "1 post failed to publish" else "${ui.failed.size} posts failed to publish",
                     action = "Review",
-                    onClick = onOpenCalendar
+                    onClick = onReviewFailed
                 )
             }
             if (ui.disabledChannels.isNotEmpty()) {
