@@ -142,7 +142,7 @@ class LoginViewModel @Inject constructor(
         when (outcome) {
             is Outcome.Failure -> uiState = uiState.copy(isLoading = false, error = outcome.message)
             is Outcome.Key -> {
-                sessionManager.saveSession(serverUrl, outcome.apiKey, isCloud = false)
+                sessionManager.saveSession(serverUrl, outcome.apiKey, isCloud = false, email = outcome.email, name = outcome.name)
                 apiProvider.invalidate()
                 when (val check = repository.checkConnection()) {
                     is Resource.Success ->
@@ -164,7 +164,7 @@ class LoginViewModel @Inject constructor(
     }
 
     private sealed interface Outcome {
-        data class Key(val apiKey: String) : Outcome
+        data class Key(val apiKey: String, val email: String = "", val name: String = "") : Outcome
         data class Failure(val message: String) : Outcome
     }
 
@@ -207,7 +207,11 @@ class LoginViewModel @Inject constructor(
             if (key.isBlank()) {
                 return Outcome.Failure("Your account's role can't access the API key. Sign in as an organisation admin.")
             }
-            return Outcome.Key(key)
+            return Outcome.Key(
+                key,
+                email = self["email"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                name = self["name"]?.jsonPrimitive?.contentOrNull.orEmpty()
+            )
         }
     }
 

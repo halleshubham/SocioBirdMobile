@@ -3,6 +3,9 @@ package com.postiz.mobile.ui.main
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
@@ -84,7 +87,11 @@ fun MainScaffold() {
             navController = navController,
             startDestination = Screen.Home.route,
             // Edge-to-edge: keep content below the status bar / camera cutout (screens add no hard-coded top gap).
-            modifier = Modifier.padding(padding).statusBarsPadding()
+            modifier = Modifier.padding(padding).statusBarsPadding(),
+            enterTransition = { fadeIn(tween(180)) },
+            exitTransition = { fadeOut(tween(120)) },
+            popEnterTransition = { fadeIn(tween(180)) },
+            popExitTransition = { fadeOut(tween(120)) }
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(
@@ -115,7 +122,7 @@ fun MainScaffold() {
                 )
             }
             composable(Screen.Settings.route) {
-                SettingsScreen(onBack = { navController.navigateSingleTopTo(Screen.Home.route) })
+                SettingsScreen()
             }
             composable(Screen.AddChannel.route) {
                 AddChannelScreen(onBack = { navController.popBackStack() })

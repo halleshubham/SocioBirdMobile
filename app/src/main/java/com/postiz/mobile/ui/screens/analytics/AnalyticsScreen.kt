@@ -1,6 +1,7 @@
 package com.postiz.mobile.ui.screens.analytics
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -219,7 +220,7 @@ private fun ChangeChip(change: Double) {
 /** A small line chart with a soft fill; draws a flat line when there is one point or no variation. */
 @Composable
 private fun Sparkline(values: List<Double>, modifier: Modifier, color: Color) {
-    Canvas(modifier = modifier) {
+    Canvas(modifier = modifier.clearAndSetSemantics { }) {
         if (values.isEmpty()) return@Canvas
         val min = values.min()
         val max = values.max()

@@ -65,8 +65,9 @@ The app follows a Material 3 design system; read this before touching a screen.
   "Set up on web". If the catalog is unavailable the app falls back to a short list of OAuth providers.
 - **Insights** (`ui/screens/analytics`): channel and post analytics as metric cards with the headline number (latest value for follower-type metrics, sum for daily
   metrics), change chip and a Canvas sparkline (no chart library), 7/30/90-day selector (`days` query param).
-- **Old screens** (settings, sign-in) still use the earlier "editorial" layout on the new theme and are migrated in the polish phase.
-  When you change one, move it to `SbComponents`.
+- **Settings / More** (`ui/screens/settings`): profile card (initial avatar, name/email from `GET /user/self`, stored in `SessionManager`; "Signed in with an API key" otherwise), Appearance segmented button,
+  masked API key with reveal/copy, Help (mailto `support@shackyapps.in`), Privacy/Terms (Custom Tab to `<server>/privacy`, `/terms`), account-deletion request (mailto), version, Sign out with confirm.
+- **Sign-in** (`ui/screens/connect`): `LoginScreen`/`ConnectScreen` use `AuthScaffold`/`AuthHeader`/`PrimaryActionButton` with `OutlinedTextField`s, Google first, width capped at 480dp. Screens fade between destinations (180ms).
 
 ## Build commands
 
@@ -91,7 +92,7 @@ CI (`.github/workflows`):
 - `targetSdk`/`compileSdk` 36. Google requires new apps and updates to target API 36 (since 2026-08-31),
   so never lower it. That needs AGP 8.9.1 and Gradle 8.11.1 (already set).
 - `versionCode` must be higher than the last upload to Play. The default is in `app/build.gradle.kts`
-  (`?: 14`); bump it for every release, or pass `-PversionCode=N -PversionName=x.y.z`.
+  (`?: 15`); bump it for every release, or pass `-PversionCode=N -PversionName=x.y.z`.
 - Signing: upload key from `keystore.properties` at the repo root (git-ignored) with
   `storeFile`, `storePassword`, `keyAlias`, `keyPassword`. Without it the release build is unsigned. The keystore
   (`sociobird-upload.jks`, alias `sociobird-upload`) is held by the owner, never committed. Play App Signing is on.

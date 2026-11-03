@@ -12,7 +12,11 @@ import com.postiz.mobile.util.localDateOf
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import com.postiz.mobile.data.local.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -45,8 +49,14 @@ data class HomeUi(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repository: PostizRepository,
-    private val calendarFocus: CalendarFocus
+    private val calendarFocus: CalendarFocus,
+    sessionManager: SessionManager
 ) : ViewModel() {
+
+    /** First word of the account name, for "Good morning, Priya"; null when unknown (email-less or API-key sessions). */
+    val firstName: StateFlow<String?> = sessionManager.sessionFlow
+        .map { session -> session.name.trim().substringBefore(" ").takeIf { it.isNotBlank() } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private val _state = MutableStateFlow<Resource<HomeUi>>(Resource.Loading)
     val state: StateFlow<Resource<HomeUi>> = _state.asStateFlow()
