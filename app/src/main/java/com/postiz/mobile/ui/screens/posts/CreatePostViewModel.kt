@@ -84,6 +84,19 @@ data class CreatePostUiState(
         return ids.isNotEmpty() && selectedIntegrationIds.containsAll(ids)
     }
 
+    /** True when there is something the user would lose by leaving (drives the "Discard?" guard). */
+    val hasChanges: Boolean get() = content.isNotBlank() || uploadedImages.isNotEmpty()
+
+    /** Why the primary button is disabled, or null when the post can be sent. */
+    val blocker: String?
+        get() = when {
+            isUploadingImage -> "Wait for the upload to finish"
+            selectedIntegrationIds.isEmpty() -> "Pick at least one channel"
+            content.isBlank() -> "Write something to post"
+            maxLength != null && content.length > maxLength -> "Shorten the text to ${maxLength} characters"
+            else -> null
+        }
+
     /** The picked local date, or today if none picked yet (sensible picker default). */
     val scheduleLocalDate: LocalDate
         get() = scheduleDateMillisUtc
@@ -152,6 +165,40 @@ class CreatePostViewModel @Inject constructor(
         refreshMaxLength()
     }
 
+    fun selectAllChannels() {
+        uiState = uiState.copy(selectedIntegrationIds = uiState.integrations.filterNot { it.disabled }.map { it.id }.toSet())
+        refreshMaxLength()
+    }
+
+    fun clearChannels() {
+        uiState = uiState.copy(selectedIntegrationIds = emptySet(), maxLength = null)
+    }
+
+    fun clearError() {
+        uiState = uiState.copy(error = null)
+    }
+
+    /** "Today evening" is 6 PM today, or 6 PM tomorrow when it is already past 5:30 PM. */
+    fun scheduleTodayEvening() {
+        val now = LocalDateTime.now()
+        val day = if (now.toLocalTime().isBefore(LocalTime.of(17, 30))) now.toLocalDate() else now.toLocalDate().plusDays(1)
+        applyLocal(LocalDateTime.of(day, LocalTime.of(18, 0)))
+    }
+
+    fun scheduleTomorrowMorning() {
+        applyLocal(LocalDateTime.of(LocalDate.now().plusDays(1), LocalTime.of(9, 0)))
+    }
+
+    private fun applyLocal(dateTime: LocalDateTime) {
+        uiState = uiState.copy(
+            scheduleMode = ScheduleMode.LATER,
+            scheduleDateMillisUtc = dateTime.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            scheduleHour = dateTime.hour,
+            scheduleMinute = dateTime.minute,
+            error = null
+        )
+    }
+
     /** The composer's character limit is the tightest one among the currently selected channels. */
     private fun refreshMaxLength() {
         val ids = uiState.selectedIntegrationIds
@@ -203,9 +250,10 @@ class CreatePostViewModel @Inject constructor(
                 // allows video/mp4 for video (any other container/codec 400s
                 // after the whole file has already been uploaded) -- catching
                 // it here skips a slow, doomed upload.
-                if (isVideo && mimeType != "video/mp4") {
+                // MP4 and QuickTime (.mov, what iPhones record) are accepted; the server stores .mov as-is.
+                if (isVideo && mimeType != "video/mp4" && mimeType != "video/quicktime") {
                     if (firstError == null) firstError =
-                        "This server only accepts MP4 video; this file is $mimeType. Try converting it to MP4 first."
+                        "This server accepts MP4 and MOV video; this file is $mimeType. Try converting it to MP4 first."
                     return@forEachIndexed
                 }
                 val part = try {
@@ -310,8 +358,17 @@ class CreatePostViewModel @Inject constructor(
         return localDateTime.atZone(ZoneId.systemDefault()).toInstant()
     }
 
-    fun submit() {
+    fun submit() = send(if (uiState.scheduleMode == ScheduleMode.NOW) "now" else "schedule")
+
+    /** Saves the post as a draft (not queued) on the picked channels; it shows up under Drafts in the calendar. */
+    fun saveDraft() = send("draft")
+
+    private fun send(type: String) {
         val selected = uiState.integrations.filter { it.id in uiState.selectedIntegrationIds }
+        if (uiState.isUploadingImage) {
+            uiState = uiState.copy(error = "Wait for the upload to finish")
+            return
+        }
         if (uiState.content.isBlank()) {
             uiState = uiState.copy(error = "Write something first")
             return
@@ -321,14 +378,16 @@ class CreatePostViewModel @Inject constructor(
             return
         }
 
-        val isoDate = if (uiState.scheduleMode == ScheduleMode.NOW) {
-            Instant.now().toString()
-        } else {
-            scheduledInstant().toString()
+        val useSchedule = type == "schedule" || (type == "draft" && uiState.scheduleMode == ScheduleMode.LATER)
+        val instant = if (useSchedule) scheduledInstant() else Instant.now()
+        if (type == "schedule" && instant.isBefore(Instant.now())) {
+            uiState = uiState.copy(error = "Pick a time in the future")
+            return
         }
+        val isoDate = instant.toString()
 
         val request = CreatePostRequestDto(
-            type = if (uiState.scheduleMode == ScheduleMode.NOW) "now" else "schedule",
+            type = type,
             date = isoDate,
             posts = selected.map { integration ->
                 PostRequestItemDto(
