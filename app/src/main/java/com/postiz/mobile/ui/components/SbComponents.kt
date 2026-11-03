@@ -217,3 +217,29 @@ fun SbEmptyState(
         }
     }
 }
+
+
+private val providerNames = mapOf(
+    "x" to "X",
+    "linkedin" to "LinkedIn",
+    "linkedin-page" to "LinkedIn Page",
+    "instagram" to "Instagram",
+    "instagram-standalone" to "Instagram",
+    "facebook" to "Facebook Page",
+    "threads" to "Threads",
+    "mastodon" to "Mastodon",
+    "mastodon-custom" to "Mastodon",
+    "telegram" to "Telegram",
+    "youtube" to "YouTube",
+    "wordpress" to "WordPress",
+    "devto" to "Dev.to",
+    "hashnode" to "Hashnode",
+    "medium" to "Medium",
+    "lemmy" to "Lemmy",
+    "listmonk" to "Listmonk",
+    "botsab" to "Botsab"
+)
+
+/** Readable platform name for a provider identifier, e.g. "linkedin-page" -> "LinkedIn Page". */
+fun providerDisplayName(identifier: String?): String =
+    providerNames[identifier] ?: identifier.orEmpty().split("-").joinToString(" ") { it.replaceFirstChar(Char::uppercase) }

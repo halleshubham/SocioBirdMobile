@@ -110,7 +110,6 @@ fun MainScaffold() {
             }
             composable(Screen.Integrations.route) {
                 IntegrationsScreen(
-                    onBack = { navController.navigateSingleTopTo(Screen.Home.route) },
                     onAddChannel = { navController.navigate(Screen.AddChannel.route) },
                     onChannelTap = { id -> navController.navigate(Screen.ChannelAnalytics.route(id)) }
                 )
